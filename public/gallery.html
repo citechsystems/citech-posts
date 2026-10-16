@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI.TECH — Galeria</title>
+<style>
+  :root{
+    --bg:#070a1f;
+    --panel:#0d1230;
+    --panel2:#121a3f;
+    --blue:#2aa9ff;
+    --blue2:#1565ff;
+    --text:#eef2ff;
+    --muted:#8d97c4;
+    --border:#243068;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:radial-gradient(circle at 50% 0%, #0d1540 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  header{
+    padding:28px 20px 18px;
+    text-align:center;
+  }
+  header h1{margin:0 0 6px; font-size:22px;}
+  header h1 span{color:var(--blue);}
+  header p{margin:0; color:var(--muted); font-size:14px;}
+  .wrap{max-width:1100px; margin:0 auto; padding:0 16px;}
+  .toolbar{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    margin:20px 0;
+  }
+  select, .btn{
+    appearance:none;
+    border:none;
+    border-radius:12px;
+    padding:12px 18px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    color:#fff;
+    background:linear-gradient(135deg,var(--blue),var(--blue2));
+  }
+  .btn.secondary, select{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(160px,1fr));
+    gap:14px;
+  }
+  .item{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .item img{
+    width:100%;
+    aspect-ratio:9/16;
+    object-fit:cover;
+    display:block;
+    background:#000;
+  }
+  .item .meta{
+    padding:8px 10px;
+    font-size:11.5px;
+    color:var(--muted);
+  }
+  .item .meta .tpl{
+    display:inline-block;
+    background:var(--panel2);
+    color:var(--blue);
+    border-radius:6px;
+    padding:2px 7px;
+    font-size:10.5px;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+  .item .actions{
+    display:flex;
+    gap:6px;
+    padding:0 10px 10px;
+  }
+  .item .actions .btn{
+    flex:1;
+    padding:7px;
+    font-size:11.5px;
+    border-radius:8px;
+  }
+  .empty, .loading{
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+    margin-top:40px;
+  }
+  .more-row{
+    text-align:center;
+    margin-top:24px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CI.TECH <span>·</span> Galeria</h1>
+  <p>Artes salvas pelo gerador de posts</p>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <a class="btn" href="/">➕ Gerar novas artes</a>
+    <select id="filter">
+      <option value="">Todos os templates</option>
+      <option value="novidade">Chegou Novidade</option>
+      <option value="promocao">Tem Promoção</option>
+      <option value="produtos">Nossos Produtos</option>
+    </select>
+  </div>
+
+  <div id="grid" class="grid"></div>
+  <div id="emptyMsg" class="empty" style="display:none;">Nenhuma arte salva ainda.</div>
+  <div id="loadingMsg" class="loading">Carregando...</div>
+  <div class="more-row">
+    <button class="btn secondary" id="moreBtn" style="display:none;">Carregar mais</button>
+  </div>
+</div>
+
+<script>
+const grid = document.getElementById('grid');
+const emptyMsg = document.getElementById('emptyMsg');
+const loadingMsg = document.getElementById('loadingMsg');
+const moreBtn = document.getElementById('moreBtn');
+const filterSel = document.getElementById('filter');
+
+const TEMPLATE_LABELS = { novidade: 'Chegou Novidade', promocao: 'Tem Promoção', produtos: 'Nossos Produtos' };
+
+let cursor = null;
+let loading = false;
+
+filterSel.addEventListener('change', () => { grid.innerHTML = ''; cursor = null; load(true); });
+moreBtn.addEventListener('click', () => load(false));
+
+async function load(first) {
+  if (loading) return;
+  loading = true;
+  loadingMsg.style.display = 'block';
+  const params = new URLSearchParams();
+  params.set('limit', '24');
+  if (cursor) params.set('cursor', cursor);
+  if (filterSel.value) params.set('template', filterSel.value);
+
+  try {
+    const resp = await fetch('/api/posts?' + params.toString());
+    const data = await resp.json();
+    data.items.forEach(renderItem);
+    cursor = data.next_cursor;
+    moreBtn.style.display = cursor ? 'inline-block' : 'none';
+    emptyMsg.style.display = (first && data.items.length === 0) ? 'block' : 'none';
+  } catch (err) {
+    loadingMsg.textContent = 'Erro ao carregar a galeria.';
+  } finally {
+    loading = false;
+    loadingMsg.style.display = 'none';
+  }
+}
+
+function renderItem(post) {
+  const item = document.createElement('div');
+  item.className = 'item';
+
+  const img = document.createElement('img');
+  img.src = post.url;
+  img.loading = 'lazy';
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const tpl = document.createElement('span');
+  tpl.className = 'tpl';
+  tpl.textContent = TEMPLATE_LABELS[post.template] || post.template;
+  meta.appendChild(tpl);
+  meta.appendChild(document.createElement('br'));
+  meta.appendChild(document.createTextNode(post.product_name || '—'));
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  const dlA = document.createElement('a');
+  dlA.className = 'btn secondary';
+  dlA.textContent = '⬇️';
+  dlA.href = post.url;
+  dlA.download = `citech-${post.template}-${post.id}.jpg`;
+  const rmBtn = document.createElement('button');
+  rmBtn.className = 'btn secondary';
+  rmBtn.textContent = '🗑️';
+  rmBtn.addEventListener('click', async () => {
+    if (!confirm('Remover essa arte da galeria?')) return;
+    await fetch('/api/posts/' + post.id, { method: 'DELETE' });
+    item.remove();
+  });
+  actions.appendChild(dlA);
+  actions.appendChild(rmBtn);
+
+  item.appendChild(img);
+  item.appendChild(meta);
+  item.appendChild(actions);
+  grid.appendChild(item);
+}
+
+load(true);
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+services:
+  citech-posts:
+    build: .
+    container_name: citech-posts
+    restart: unless-stopped
+    ports:
+      # porta externa:porta interna — ajuste a externa se já tiver algo nela.
+      # Se o cloudflared vai apontar direto pro container (rede do Docker),
+      # essa porta externa não precisa nem ficar exposta no host — nesse
+      # caso é só remover o "ports:" e usar o nome do serviço na network.
+      - "8090:3010"
+    environment:
+      - PORT=3010
+      - SQLITE_FILE=/app/data/posts.sqlite
+      - UPLOADS_DIR=/app/uploads
+    volumes:
+      # Ajuste o prefixo do host pro caminho real no servidor de homol.
+      # Crie as pastas antes do primeiro "docker compose up" (senão o Docker
+      # cria arquivo/pasta errado por engano):
+      #   mkdir -p /root/citech-posts/data /root/citech-posts/uploads
+      - /root/citech-posts/data:/app/data
+      - /root/citech-posts/uploads:/app/uploads
