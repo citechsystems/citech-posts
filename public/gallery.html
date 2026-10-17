@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CI.TECH — Galeria</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#070a1f">
 <style>
   :root{
     --bg:#070a1f;
@@ -128,9 +132,6 @@
     <button class="btn secondary" id="logoutBtn">🚪 Sair</button>
     <select id="filter">
       <option value="">Todos os templates</option>
-      <option value="novidade">Chegou Novidade</option>
-      <option value="promocao">Tem Promoção</option>
-      <option value="produtos">Nossos Produtos</option>
     </select>
   </div>
 
@@ -149,10 +150,19 @@ const loadingMsg = document.getElementById('loadingMsg');
 const moreBtn = document.getElementById('moreBtn');
 const filterSel = document.getElementById('filter');
 
-const TEMPLATE_LABELS = { novidade: 'Chegou Novidade', promocao: 'Tem Promoção', produtos: 'Nossos Produtos' };
-
 let cursor = null;
 let loading = false;
+
+async function loadTemplateFilterOptions() {
+  const resp = await fetch('/api/post-template-names');
+  if (!resp.ok) return;
+  const data = await resp.json();
+  data.items.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    filterSel.appendChild(opt);
+  });
+}
 
 filterSel.addEventListener('change', () => { grid.innerHTML = ''; cursor = null; load(true); });
 moreBtn.addEventListener('click', () => load(false));
@@ -198,7 +208,7 @@ function renderItem(post) {
   meta.className = 'meta';
   const tpl = document.createElement('span');
   tpl.className = 'tpl';
-  tpl.textContent = TEMPLATE_LABELS[post.template] || post.template;
+  tpl.textContent = post.template;
   meta.appendChild(tpl);
   meta.appendChild(document.createElement('br'));
   meta.appendChild(document.createTextNode(post.product_name || '—'));
@@ -209,7 +219,8 @@ function renderItem(post) {
   dlA.className = 'btn secondary';
   dlA.textContent = '⬇️';
   dlA.href = post.url;
-  dlA.download = `citech-${post.template}-${post.id}.jpg`;
+  const slug = post.template.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-');
+  dlA.download = `citech-${slug}-${post.id}.jpg`;
   const rmBtn = document.createElement('button');
   rmBtn.className = 'btn secondary';
   rmBtn.textContent = '🗑️';
@@ -227,6 +238,7 @@ function renderItem(post) {
   grid.appendChild(item);
 }
 
+loadTemplateFilterOptions();
 load(true);
 </script>
 </body>

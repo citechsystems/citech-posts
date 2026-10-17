@@ -3,275 +3,114 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CI.TECH — Gerador de Posts</title>
+<title>CI.TECH — Editor de Posts</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#070a1f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Oswald:wght@400;600;700&family=Poppins:wght@700;800;900&family=Rajdhani:wght@600;700&family=Russo+One&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/konva@9.3.14/konva.min.js"></script>
 <style>
   :root{
-    --bg:#070a1f;
-    --panel:#0d1230;
-    --panel2:#121a3f;
-    --blue:#2aa9ff;
-    --blue2:#1565ff;
-    --text:#eef2ff;
-    --muted:#8d97c4;
-    --border:#243068;
+    --bg:#070a1f; --panel:#0d1230; --panel2:#121a3f;
+    --blue:#2aa9ff; --blue2:#1565ff; --text:#eef2ff; --muted:#8d97c4; --border:#243068;
   }
   *{box-sizing:border-box;}
   body{
-    margin:0;
+    margin:0; min-height:100vh; padding-bottom:40px;
     background:radial-gradient(circle at 50% 0%, #0d1540 0%, var(--bg) 60%);
     color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    min-height:100vh;
-    padding-bottom:60px;
   }
-  header{
-    padding:24px 20px 16px;
-    text-align:center;
-  }
-  header h1{
-    margin:0 0 6px;
-    font-size:22px;
-    letter-spacing:.5px;
-  }
+  header{padding:18px 20px 12px; text-align:center;}
+  header h1{margin:0 0 4px; font-size:20px;}
   header h1 span{color:var(--blue);}
-  header p{
-    margin:0 auto;
-    color:var(--muted);
-    font-size:14px;
-    max-width:520px;
-    line-height:1.5;
-  }
-  .nav{
-    display:flex;
-    gap:8px;
-    justify-content:center;
-    flex-wrap:wrap;
-    margin-top:14px;
-  }
-  .wrap{
-    max-width:980px;
-    margin:0 auto;
-    padding:0 16px;
-  }
-  .upload-box{
-    background:var(--panel);
-    border:1px dashed var(--border);
-    border-radius:16px;
-    padding:28px 20px;
-    text-align:center;
-    margin-top:20px;
-  }
-  .btn-row{
-    display:flex;
-    gap:10px;
-    justify-content:center;
-    flex-wrap:wrap;
-    margin-top:14px;
-  }
+  .nav{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
   .btn{
-    appearance:none;
-    border:none;
-    border-radius:12px;
-    padding:14px 22px;
-    font-size:15px;
-    font-weight:600;
-    cursor:pointer;
-    color:#fff;
+    appearance:none; border:none; border-radius:11px; padding:11px 16px;
+    font-size:13.5px; font-weight:600; cursor:pointer; color:#fff; text-decoration:none; display:inline-block;
     background:linear-gradient(135deg,var(--blue),var(--blue2));
-    box-shadow:0 4px 14px rgba(42,169,255,.3);
-    text-decoration:none;
-    display:inline-block;
   }
-  .btn.secondary{
-    background:var(--panel2);
-    border:1px solid var(--border);
-    box-shadow:none;
-    color:var(--text);
-  }
-  .btn.small{
-    padding:8px 11px;
-    font-size:12px;
-    border-radius:9px;
-  }
-  .btn:active{transform:translateY(1px);}
+  .btn.secondary{background:var(--panel2); border:1px solid var(--border); color:var(--text);}
+  .btn.small{padding:8px 11px; font-size:12px; border-radius:9px;}
+  .btn:disabled{opacity:.4; cursor:default;}
   input[type=file]{display:none;}
-  .hint{color:var(--muted); font-size:13px; margin-top:12px;}
+  .wrap{max-width:1000px; margin:0 auto; padding:0 16px;}
 
-  .cards{
-    display:flex;
-    flex-direction:column;
-    gap:22px;
-    margin-top:26px;
+  /* ---- start screen ---- */
+  #startScreen h2{font-size:16px; text-align:center; margin:22px 0 14px;}
+  .tpl-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px;
   }
-  .card{
-    background:var(--panel);
-    border:1px solid var(--border);
-    border-radius:18px;
-    padding:16px;
+  .tpl-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    overflow:hidden; cursor:pointer; text-align:center;
   }
-  .card-top{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:12px;
+  .tpl-card:hover{border-color:var(--blue);}
+  .tpl-card .thumb{
+    width:100%; aspect-ratio:9/16; background:#000; display:flex; align-items:center; justify-content:center;
+    color:var(--muted); font-size:28px;
   }
-  .card-top .name{
-    font-size:13px;
-    color:var(--muted);
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-    max-width:70%;
+  .tpl-card .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .tpl-card .name{padding:9px 6px; font-size:12.5px;}
+  .tpl-card.blank .thumb{font-size:34px;}
+
+  /* ---- photo-prep modal ---- */
+  .overlay-modal{
+    position:fixed; inset:0; background:rgba(3,5,20,.75); display:flex; align-items:center; justify-content:center;
+    padding:20px; z-index:50;
   }
+  .modal-box{background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:24px; max-width:420px; width:100%;}
+  .modal-box h3{margin:0 0 14px; font-size:15px;}
+  .photo-slot{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .photo-slot span{font-size:12.5px; color:var(--muted); flex:1;}
+
+  /* ---- editor screen ---- */
+  #editorScreen{display:none;}
+  .editor-layout{display:flex; gap:18px; margin-top:16px; flex-wrap:wrap; align-items:flex-start; justify-content:center;}
+  .toolbar{
+    display:flex; flex-direction:row; gap:8px; flex-wrap:wrap; justify-content:center;
+    background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:10px; margin-bottom:14px;
+    width:100%; max-width:420px;
+  }
+  .toolbar .btn{flex:1 1 auto; white-space:nowrap;}
+  #stageOuter{
+    width:100%; max-width:420px; position:relative; overflow:hidden; border-radius:14px;
+    border:1px solid var(--border); background:#000;
+  }
+  .side-panel{
+    width:100%; max-width:420px; display:flex; flex-direction:column; gap:14px;
+  }
+  .panel-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:14px;
+  }
+  .panel-card h4{margin:0 0 10px; font-size:12.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
+  .panel-card .empty-hint{font-size:12.5px; color:var(--muted);}
+  .field-row{display:flex; align-items:center; gap:8px; margin-bottom:9px;}
+  .field-row label{font-size:11.5px; color:var(--muted); width:62px; flex-shrink:0;}
+  .field-row input[type=text], .field-row select, .field-row textarea{
+    flex:1; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    border-radius:8px; padding:7px 9px; font-size:12.5px;
+  }
+  .field-row input[type=range]{flex:1; accent-color:var(--blue);}
+  .field-row input[type=color]{width:40px; height:30px; border:none; border-radius:6px; background:none; padding:0;}
+  .field-row input[type=checkbox]{width:16px; height:16px;}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:9px;}
   .product-name-input{
-    width:100%;
-    background:var(--panel2);
-    border:1px solid var(--border);
-    color:var(--text);
-    border-radius:10px;
-    padding:10px 12px;
-    font-size:13px;
-    margin-bottom:12px;
+    width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:10px;
   }
-  .product-name-input::placeholder{color:var(--muted);}
-  .variants{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:12px;
-  }
-  @media(max-width:700px){
-    .variants{grid-template-columns:1fr; max-width:320px; margin:0 auto;}
-  }
-  .variant{
-    display:flex;
-    flex-direction:column;
-    gap:7px;
-    background:var(--panel2);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:10px;
-  }
-  .variant .vlabel{
-    font-size:12px;
-    color:var(--blue);
-    text-align:center;
-    font-weight:700;
-    letter-spacing:.3px;
-  }
-  .canvas-wrap{
-    position:relative;
-    width:100%;
-    aspect-ratio:9/16;
-    background:#000;
-    touch-action:none;
-    overflow:hidden;
-    cursor:grab;
-    border-radius:10px;
-    border:1px solid var(--border);
-  }
-  .canvas-wrap:active{cursor:grabbing;}
-  .canvas-wrap canvas{
-    width:100%;
-    height:100%;
-    display:block;
-  }
-  .text-controls{
-    display:flex;
-    flex-direction:column;
-    gap:5px;
-  }
-  .text-controls input[type=text], .text-controls select{
-    width:100%;
-    background:var(--panel);
-    border:1px solid var(--border);
-    color:var(--text);
-    border-radius:8px;
-    padding:6px 8px;
-    font-size:12px;
-  }
-  .text-controls .two-col{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:5px;
-  }
-  .text-controls .size-row{
-    display:flex;
-    align-items:center;
-    gap:6px;
-  }
-  .text-controls .size-row label{
-    font-size:10.5px;
-    color:var(--muted);
-    flex-shrink:0;
-    width:46px;
-  }
-  .text-controls input[type=range]{
-    flex:1;
-    accent-color:var(--blue);
-  }
-  .vbtns{
-    display:flex;
-    gap:6px;
-  }
-  .vbtns .btn{flex:1;}
-
-  .zoom-row{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    margin-top:14px;
-    padding-top:14px;
-    border-top:1px solid var(--border);
-  }
-  .zoom-row label{
-    font-size:12px;
-    color:var(--muted);
-    width:80px;
-    flex-shrink:0;
-  }
-  input[type=range]{
-    flex:1;
-    accent-color:var(--blue);
-  }
-  .card-footer{
-    display:flex;
-    gap:8px;
-    margin-top:12px;
-  }
-  .card-footer .btn{flex:1;}
-
-  .empty-state{
-    text-align:center;
-    color:var(--muted);
-    font-size:13px;
-    margin-top:18px;
-  }
-  .share-note{
-    font-size:11px;
-    color:var(--muted);
-    text-align:center;
-    min-height:14px;
-  }
-  footer{
-    text-align:center;
-    color:var(--muted);
-    font-size:12px;
-    margin-top:40px;
-    padding:0 20px;
-  }
-  .bulk{
-    margin-top:26px;
-  }
+  .footer-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .footer-actions .btn{flex:1 1 auto;}
+  .share-note{font-size:11px; color:var(--muted); min-height:14px; margin-top:6px;}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>CI.TECH <span>·</span> Gerador de Posts</h1>
-  <p>Suba as fotos dos produtos novos. Edite o texto, fonte, tamanho e peso de cada versão, ajuste a foto arrastando/zoom, depois baixe, compartilhe ou salve na galeria.</p>
+  <h1>CI.TECH <span>·</span> Editor</h1>
   <div class="nav">
     <a class="btn secondary small" href="/gallery.html">📁 Galeria</a>
     <a class="btn secondary small" href="/users.html">👤 Usuários</a>
@@ -280,32 +119,77 @@
 </header>
 
 <div class="wrap">
-  <div class="upload-box">
-    <div class="btn-row">
-      <label class="btn" for="cameraInput">📷 Tirar foto</label>
-      <label class="btn secondary" for="galleryInput">🖼️ Escolher da galeria (várias)</label>
-    </div>
-    <input id="cameraInput" type="file" accept="image/*" capture="environment">
-    <input id="galleryInput" type="file" accept="image/*" multiple>
-    <div class="hint">Formato final: 1080×1920 (Stories/Reels do Instagram)</div>
+
+  <div id="startScreen">
+    <h2>Escolha um template pra começar</h2>
+    <div class="tpl-grid" id="tplGrid"></div>
   </div>
 
-  <div id="emptyState" class="empty-state">Nenhuma foto ainda — suba uma foto de produto acima para começar.</div>
+  <div id="editorScreen">
+    <div style="text-align:center; margin-bottom:10px;">
+      <button class="btn secondary small" id="backToStartBtn">⬅️ Trocar de template</button>
+    </div>
 
-  <div id="cards" class="cards"></div>
+    <div class="editor-layout">
+      <div style="width:100%; max-width:420px; margin:0 auto;">
+        <div class="toolbar">
+          <button class="btn small" id="addTextBtn">🔤 Texto</button>
+          <button class="btn small" id="addPhotoBtn">🖼️ Foto</button>
+          <button class="btn small" id="addLogoBtn">🏷️ Logo</button>
+          <button class="btn small" id="addShapeBtn">🔖 Forma</button>
+          <button class="btn secondary small" id="bgBtn">🎨 Fundo</button>
+          <button class="btn secondary small" id="deleteBtn" disabled>🗑️ Excluir</button>
+        </div>
+        <div id="stageOuter"></div>
+      </div>
 
-  <div id="bulkRow" class="btn-row bulk" style="display:none;">
-    <button class="btn" id="downloadAllBtn">⬇️ Baixar todas as artes</button>
-    <button class="btn secondary" id="clearAllBtn">🗑️ Limpar tudo</button>
+      <div class="side-panel">
+        <div class="panel-card" id="propsPanel">
+          <h4>Propriedades</h4>
+          <div class="empty-hint">Toque num elemento na arte pra editar.</div>
+        </div>
+
+        <div class="panel-card">
+          <h4>Fundo</h4>
+          <div class="field-row">
+            <label>Tipo</label>
+            <select id="bgType">
+              <option value="image">Imagem</option>
+              <option value="color">Cor sólida</option>
+            </select>
+          </div>
+          <div class="field-row" id="bgColorRow" style="display:none;">
+            <label>Cor</label>
+            <input type="color" id="bgColorInput" value="#070a1f">
+          </div>
+          <button class="btn secondary small" id="bgImageBtn" style="width:100%;">🖼️ Escolher imagem de fundo</button>
+        </div>
+
+        <div class="panel-card">
+          <h4>Exportar</h4>
+          <input id="productNameInput" class="product-name-input" type="text" placeholder="Nome do produto (opcional)">
+          <div class="footer-actions">
+            <button class="btn small" id="downloadBtn">⬇️ Baixar</button>
+            <button class="btn secondary small" id="shareBtn">📤 Compartilhar</button>
+            <button class="btn secondary small" id="saveGalleryBtn">💾 Galeria</button>
+          </div>
+          <div class="share-note" id="shareNote"></div>
+        </div>
+
+        <div class="panel-card">
+          <h4>Template</h4>
+          <input id="templateNameInput" class="product-name-input" type="text" placeholder="Nome do template">
+          <button class="btn small" id="saveTemplateBtn" style="width:100%;">💾 Salvar como template</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<footer>CI.TECH Sistemas e Acessórios</footer>
+<input type="file" id="fileInput" accept="image/*">
 
 <script>
 const CANVAS_W = 1080, CANVAS_H = 1920;
-const HOLE = { x: 139, y: 428, w: 802, h: 1094, r: 28 };
-const TEXT_BOX = { x: 132, y: 168, maxWidth: 820, maxBottom: 412 };
 
 const FONTS = [
   { key: 'anton', family: 'Anton', weights: [400] },
@@ -319,455 +203,629 @@ const FONTS = [
   { key: 'teko', family: 'Teko', weights: [600, 700] },
 ];
 const WEIGHT_LABELS = { 400: 'Normal', 600: 'Semi-bold', 700: 'Bold', 800: 'Extra-bold', 900: 'Black' };
-
-const TEMPLATES = [
-  { key: 'novidade', label: 'Chegou Novidade', line1: 'CHEGOU', line2: 'NOVIDADE', font: 'anton' },
-  { key: 'promocao', label: 'Tem Promoção',    line1: 'TEM',    line2: 'PROMOÇÃO', font: 'anton' },
-  { key: 'produtos', label: 'Nossos Produtos', line1: 'NOSSOS', line2: 'PRODUTOS', font: 'anton' },
-];
-
-const cards = [];
-
-const overlayReady = new Promise(resolve => {
-  const im = new Image();
-  im.onload = () => resolve(im);
-  im.src = '/overlay-base.png';
-});
+const fontFamily = key => (FONTS.find(f => f.key === key) || FONTS[0]).family;
 
 const fontsReady = Promise.all(
   FONTS.flatMap(f => f.weights.map(w => document.fonts.load(`${w} 80px "${f.family}"`)))
 ).catch(() => {});
 
-const cardsEl = document.getElementById('cards');
-const emptyState = document.getElementById('emptyState');
-const bulkRow = document.getElementById('bulkRow');
+let stage, mainLayer, transformer;
+let design = null;
+let nodesById = {};
+let selectedId = null;
+let fileInputCallback = null;
 
-document.getElementById('cameraInput').addEventListener('change', e => handleFiles(e.target.files));
-document.getElementById('galleryInput').addEventListener('change', e => handleFiles(e.target.files));
-document.getElementById('downloadAllBtn').addEventListener('click', downloadAll);
-document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const cb = fileInputCallback;
+  fileInputCallback = null;
+  e.target.value = '';
+  if (file && cb) {
+    const reader = new FileReader();
+    reader.onload = ev => cb(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+});
+function pickImage(cb) {
+  fileInputCallback = cb;
+  document.getElementById('fileInput').click();
+}
+
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await fetch('/api/logout', { method: 'POST' });
   location.href = '/login.html';
 });
 
-async function handleFiles(fileList) {
-  const [overlayImg] = await Promise.all([overlayReady, fontsReady]);
-  const files = Array.from(fileList || []);
-  for (const file of files) {
-    if (!file.type.startsWith('image/')) continue;
-    await addCard(file, overlayImg);
+// ============== START SCREEN ==============
+async function loadTemplateGrid() {
+  const grid = document.getElementById('tplGrid');
+  grid.innerHTML = '';
+  const blank = document.createElement('div');
+  blank.className = 'tpl-card blank';
+  blank.innerHTML = '<div class="thumb">➕</div><div class="name">Começar do zero</div>';
+  blank.addEventListener('click', () => startFromBlank());
+  grid.appendChild(blank);
+
+  const resp = await fetch('/api/templates');
+  if (resp.status === 401) { location.href = '/login.html'; return; }
+  const data = await resp.json();
+  data.items.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'tpl-card';
+    card.innerHTML = `<div class="thumb">${t.thumbnail_url ? `<img src="${t.thumbnail_url}">` : '🖼️'}</div><div class="name">${t.name}</div>`;
+    card.addEventListener('click', () => startFromTemplate(t.id));
+    grid.appendChild(card);
+  });
+}
+
+function startFromBlank() {
+  enterEditor({ background: { type: 'color', value: '#070a1f' }, layers: [] }, []);
+}
+
+async function startFromTemplate(id) {
+  const resp = await fetch('/api/templates/' + id);
+  const data = await resp.json();
+  const layout = data.layout;
+  const photoLayers = layout.layers.filter(l => l.type === 'image' && l.role === 'product_photo');
+  if (photoLayers.length === 0) {
+    enterEditor(layout, []);
+    return;
   }
-  updateEmptyState();
-  document.getElementById('cameraInput').value = '';
-  document.getElementById('galleryInput').value = '';
+  showPhotoPrepModal(photoLayers.length, (dataUrls) => enterEditor(layout, dataUrls));
 }
 
-function addCard(file, overlayImg) {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const img = new Image();
-      img.onload = () => {
-        const minScale = Math.max(HOLE.w / img.width, HOLE.h / img.height);
-        const state = {
-          img,
-          scale: minScale,
-          minScale,
-          drawX: HOLE.x - ((img.width * minScale) - HOLE.w) / 2,
-          drawY: HOLE.y - ((img.height * minScale) - HOLE.h) / 2,
-        };
-        const built = buildCard(file.name, state, overlayImg);
-        cardsEl.appendChild(built.card);
-        cards.push(built);
-        renderAll(built.variants);
-        resolve();
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+function showPhotoPrepModal(count, onDone) {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay-modal';
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+  box.innerHTML = `<h3>Suba a${count > 1 ? 's' : ''} foto${count > 1 ? 's' : ''} do produto</h3>`;
+  const dataUrls = new Array(count).fill(null);
+  for (let i = 0; i < count; i++) {
+    const row = document.createElement('div');
+    row.className = 'photo-slot';
+    const span = document.createElement('span');
+    span.textContent = `Foto ${i + 1} de ${count}`;
+    const btn = document.createElement('button');
+    btn.className = 'btn secondary small';
+    btn.textContent = '🖼️ Escolher';
+    btn.addEventListener('click', () => pickImage(url => { dataUrls[i] = url; span.textContent = `Foto ${i + 1} de ${count} ✅`; }));
+    row.appendChild(span); row.appendChild(btn);
+    box.appendChild(row);
+  }
+  const actions = document.createElement('div');
+  actions.className = 'btn-row';
+  actions.style.marginTop = '14px';
+  actions.style.display = 'flex';
+  actions.style.gap = '8px';
+  const continueBtn = document.createElement('button');
+  continueBtn.className = 'btn small';
+  continueBtn.style.flex = '1';
+  continueBtn.textContent = 'Continuar';
+  continueBtn.addEventListener('click', () => { document.body.removeChild(overlay); onDone(dataUrls); });
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn secondary small';
+  cancelBtn.textContent = 'Cancelar';
+  cancelBtn.addEventListener('click', () => document.body.removeChild(overlay));
+  actions.appendChild(continueBtn); actions.appendChild(cancelBtn);
+  box.appendChild(actions);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
-function fontOptionsHtml(selectedKey) {
-  return FONTS.map(f => `<option value="${f.key}" ${f.key === selectedKey ? 'selected' : ''}>${f.family}</option>`).join('');
-}
-function weightOptionsHtml(fontKey, selectedWeight) {
-  const f = FONTS.find(x => x.key === fontKey) || FONTS[0];
-  return f.weights.map(w => `<option value="${w}" ${w === selectedWeight ? 'selected' : ''}>${WEIGHT_LABELS[w] || w}</option>`).join('');
-}
-
-function buildCard(fileName, state, overlayImg) {
-  const card = document.createElement('div');
-  card.className = 'card';
-
-  const top = document.createElement('div');
-  top.className = 'card-top';
-  const name = document.createElement('div');
-  name.className = 'name';
-  name.textContent = fileName;
-  const rmBtn = document.createElement('button');
-  rmBtn.className = 'btn secondary small';
-  rmBtn.textContent = '🗑️ Remover';
-  top.appendChild(name);
-  top.appendChild(rmBtn);
-
-  const nameRow = document.createElement('input');
-  nameRow.type = 'text';
-  nameRow.placeholder = 'Nome do produto (opcional, ajuda a achar na galeria)';
-  nameRow.className = 'product-name-input';
-
-  const variantsEl = document.createElement('div');
-  variantsEl.className = 'variants';
-  const variants = [];
-
-  TEMPLATES.forEach(t => {
-    const box = document.createElement('div');
-    box.className = 'variant';
-    const label = document.createElement('div');
-    label.className = 'vlabel';
-    label.textContent = t.label;
-    const canvasWrap = document.createElement('div');
-    canvasWrap.className = 'canvas-wrap';
-    const canvas = document.createElement('canvas');
-    canvas.width = CANVAS_W; canvas.height = CANVAS_H;
-    const ctx = canvas.getContext('2d');
-    canvasWrap.appendChild(canvas);
-
-    const textControls = document.createElement('div');
-    textControls.className = 'text-controls';
-    const twoCol = document.createElement('div');
-    twoCol.className = 'two-col';
-    const line1Input = document.createElement('input');
-    line1Input.type = 'text'; line1Input.value = t.line1; line1Input.maxLength = 18;
-    const line2Input = document.createElement('input');
-    line2Input.type = 'text'; line2Input.value = t.line2; line2Input.maxLength = 18;
-    twoCol.appendChild(line1Input);
-    twoCol.appendChild(line2Input);
-
-    const twoCol2 = document.createElement('div');
-    twoCol2.className = 'two-col';
-    const fontSelect = document.createElement('select');
-    fontSelect.innerHTML = fontOptionsHtml(t.font);
-    const weightSelect = document.createElement('select');
-    const defaultFont = FONTS.find(f => f.key === t.font);
-    const defaultWeight = defaultFont.weights[defaultFont.weights.length - 1];
-    weightSelect.innerHTML = weightOptionsHtml(t.font, defaultWeight);
-    twoCol2.appendChild(fontSelect);
-    twoCol2.appendChild(weightSelect);
-
-    const sizeRow = document.createElement('div');
-    sizeRow.className = 'size-row';
-    const sizeLabel = document.createElement('label');
-    sizeLabel.textContent = 'Tamanho';
-    const sizeSlider = document.createElement('input');
-    sizeSlider.type = 'range'; sizeSlider.min = '60'; sizeSlider.max = '140'; sizeSlider.value = '100';
-    sizeRow.appendChild(sizeLabel);
-    sizeRow.appendChild(sizeSlider);
-
-    textControls.appendChild(twoCol);
-    textControls.appendChild(twoCol2);
-    textControls.appendChild(sizeRow);
-
-    const vbtns = document.createElement('div');
-    vbtns.className = 'vbtns';
-    const dlBtn = document.createElement('button');
-    dlBtn.className = 'btn small';
-    dlBtn.textContent = '⬇️';
-    const shBtn = document.createElement('button');
-    shBtn.className = 'btn secondary small';
-    shBtn.textContent = '📤';
-    const svBtn = document.createElement('button');
-    svBtn.className = 'btn secondary small';
-    svBtn.textContent = '💾';
-    vbtns.appendChild(dlBtn);
-    vbtns.appendChild(shBtn);
-    vbtns.appendChild(svBtn);
-
-    box.appendChild(label);
-    box.appendChild(canvasWrap);
-    box.appendChild(textControls);
-    box.appendChild(vbtns);
-    variantsEl.appendChild(box);
-
-    const variant = {
-      key: t.key, label: t.label, canvas, ctx, canvasWrap, overlayImg, state,
-      text: { line1: t.line1, line2: t.line2, fontKey: t.font, weight: defaultWeight, sizePct: 100 },
-    };
-
-    function rerender() { drawVariant(variant); }
-
-    line1Input.addEventListener('input', () => { variant.text.line1 = line1Input.value; rerender(); });
-    line2Input.addEventListener('input', () => { variant.text.line2 = line2Input.value; rerender(); });
-    fontSelect.addEventListener('change', async () => {
-      variant.text.fontKey = fontSelect.value;
-      const f = FONTS.find(x => x.key === fontSelect.value);
-      const w = f.weights[f.weights.length - 1];
-      variant.text.weight = w;
-      weightSelect.innerHTML = weightOptionsHtml(fontSelect.value, w);
-      await Promise.all(f.weights.map(wt => document.fonts.load(`${wt} 80px "${f.family}"`)));
-      rerender();
-    });
-    weightSelect.addEventListener('change', () => { variant.text.weight = Number(weightSelect.value); rerender(); });
-    sizeSlider.addEventListener('input', () => { variant.text.sizePct = Number(sizeSlider.value); rerender(); });
-
-    dlBtn.addEventListener('click', () => downloadCanvas(canvas, `citech-${t.key}-${Date.now()}.jpg`));
-    shBtn.addEventListener('click', () => shareCanvas(canvas, t.label, shareNote));
-    svBtn.addEventListener('click', () => saveToGallery(canvas, t.key, nameRow.value, shareNote));
-
-    attachDrag(canvasWrap, canvas, state, () => renderAll(variants));
-    variants.push(variant);
-  });
-
-  const shareNote = document.createElement('div');
-  shareNote.className = 'share-note';
-
-  const zoomRow = document.createElement('div');
-  zoomRow.className = 'zoom-row';
-  const zoomLabel = document.createElement('label');
-  zoomLabel.textContent = 'Zoom da foto';
-  const zoomSlider = document.createElement('input');
-  zoomSlider.type = 'range'; zoomSlider.min = '0'; zoomSlider.max = '100'; zoomSlider.value = '0';
-  zoomRow.appendChild(zoomLabel);
-  zoomRow.appendChild(zoomSlider);
-
-  zoomSlider.addEventListener('input', () => {
-    const t = Number(zoomSlider.value) / 100;
-    const newScale = state.minScale * (1 + t * 1.5);
-    setScaleKeepingCenter(state, newScale);
-    renderAll(variants);
-  });
-
-  const footer = document.createElement('div');
-  footer.className = 'card-footer';
-  const dlAllBtn = document.createElement('button');
-  dlAllBtn.className = 'btn';
-  dlAllBtn.textContent = '⬇️ Baixar as 3 versões';
-  dlAllBtn.addEventListener('click', async () => {
-    for (const v of variants) {
-      downloadCanvas(v.canvas, `citech-${v.key}-${Date.now()}.jpg`);
-      await new Promise(r => setTimeout(r, 250));
+// ============== ENTER EDITOR ==============
+async function enterEditor(layout, photoDataUrls) {
+  await fontsReady;
+  design = JSON.parse(JSON.stringify(layout));
+  let idx = 0;
+  design.layers.forEach(l => {
+    if (l.type === 'image' && l.role === 'product_photo' && !l.src) {
+      l.src = photoDataUrls[idx++] || null;
     }
   });
-  footer.appendChild(dlAllBtn);
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('editorScreen').style.display = 'block';
+  if (!stage) initStage();
+  await buildStageFromDesign();
+  fitStage();
+}
 
-  card.appendChild(top);
-  card.appendChild(nameRow);
-  card.appendChild(variantsEl);
-  card.appendChild(zoomRow);
-  card.appendChild(shareNote);
-  card.appendChild(footer);
+function backToStart() {
+  document.getElementById('editorScreen').style.display = 'none';
+  document.getElementById('startScreen').style.display = 'block';
+  loadTemplateGrid();
+}
+document.getElementById('backToStartBtn').addEventListener('click', backToStart);
 
-  rmBtn.addEventListener('click', () => {
-    card.remove();
-    const idx = cards.findIndex(c => c.card === card);
-    if (idx >= 0) cards.splice(idx, 1);
-    updateEmptyState();
+// ============== STAGE / KONVA ==============
+function initStage() {
+  stage = new Konva.Stage({ container: 'stageOuter', width: CANVAS_W, height: CANVAS_H });
+  stage.on('click tap', e => {
+    if (transformer && e.target.getParent() === transformer) return;
+    let n = e.target;
+    while (n && n !== stage && !n.getAttr('layerId')) n = n.getParent();
+    if (n && n.getAttr && n.getAttr('layerId')) selectNode(n.getAttr('layerId'));
+    else deselectAll();
   });
-
-  return { card, state, variants };
+  window.addEventListener('resize', fitStage);
 }
 
-function attachDrag(canvasWrap, canvas, state, onChange) {
-  let dragging = false, lastX = 0, lastY = 0;
-  function down(x, y) { dragging = true; lastX = x; lastY = y; }
-  function move(x, y) {
-    if (!dragging) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = CANVAS_W / rect.width;
-    const scaleY = CANVAS_H / rect.height;
-    state.drawX += (x - lastX) * scaleX;
-    state.drawY += (y - lastY) * scaleY;
-    lastX = x; lastY = y;
-    clampPosition(state);
-    onChange();
+function fitStage() {
+  const outer = document.getElementById('stageOuter');
+  const displayW = Math.min(outer.parentElement.clientWidth, 420);
+  const scale = displayW / CANVAS_W;
+  outer.style.height = (CANVAS_H * scale) + 'px';
+  stage.container().style.transform = `scale(${scale})`;
+  stage.container().style.transformOrigin = '0 0';
+}
+
+async function buildStageFromDesign() {
+  mainLayer = new Konva.Layer();
+  stage.destroyChildren();
+  stage.add(mainLayer);
+  nodesById = {};
+  selectedId = null;
+
+  await setBackground(design.background);
+
+  for (const layer of design.layers) {
+    let node = null;
+    if (layer.type === 'text') node = createTextNode(layer);
+    else if (layer.type === 'shape') node = createShapeNode(layer);
+    else if (layer.type === 'image') node = await createImageNode(layer);
+    if (node) { mainLayer.add(node); nodesById[layer.id] = node; }
   }
-  function up() { dragging = false; }
 
-  canvasWrap.addEventListener('mousedown', e => down(e.clientX, e.clientY));
-  window.addEventListener('mousemove', e => move(e.clientX, e.clientY));
-  window.addEventListener('mouseup', up);
-  canvasWrap.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) down(e.touches[0].clientX, e.touches[0].clientY);
-  }, { passive: true });
-  canvasWrap.addEventListener('touchmove', e => {
-    if (e.touches.length === 1) { move(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); }
-  }, { passive: false });
-  canvasWrap.addEventListener('touchend', up);
-  canvasWrap.addEventListener('wheel', e => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    const newScale = Math.max(state.minScale, state.scale * (1 + delta));
-    setScaleKeepingCenter(state, newScale);
-    onChange();
-  }, { passive: false });
+  transformer = new Konva.Transformer({
+    borderStroke: '#2aa9ff', borderStrokeWidth: 2,
+    anchorStroke: '#2aa9ff', anchorFill: '#fff', anchorSize: 10,
+    rotateEnabled: true,
+  });
+  mainLayer.add(transformer);
+  mainLayer.draw();
+  showProps(null);
+  document.getElementById('deleteBtn').disabled = true;
 }
 
-function setScaleKeepingCenter(state, newScale) {
-  const oldW = state.img.width * state.scale;
-  const oldH = state.img.height * state.scale;
-  const centerX = state.drawX + oldW / 2;
-  const centerY = state.drawY + oldH / 2;
-  state.scale = newScale;
-  const newW = state.img.width * newScale;
-  const newH = state.img.height * newScale;
-  state.drawX = centerX - newW / 2;
-  state.drawY = centerY - newH / 2;
-  clampPosition(state);
-}
-
-function clampPosition(state) {
-  const w = state.img.width * state.scale;
-  const h = state.img.height * state.scale;
-  const minX = HOLE.x + HOLE.w - w, maxX = HOLE.x;
-  const minY = HOLE.y + HOLE.h - h, maxY = HOLE.y;
-  state.drawX = Math.min(maxX, Math.max(minX, state.drawX));
-  state.drawY = Math.min(maxY, Math.max(minY, state.drawY));
-}
-
-function roundedRectPath(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-// measures text at a reference size then returns the font size that makes it `targetHeight` tall
-function fitFontSize(ctx, text, family, weight, targetHeight, maxWidth) {
-  const ref = 200;
-  ctx.font = `${weight} ${ref}px "${family}"`;
-  const m = ctx.measureText(text || ' ');
-  const h0 = (m.actualBoundingBoxAscent || ref * 0.72) + (m.actualBoundingBoxDescent || ref * 0.02);
-  let size = Math.max(10, ref * (targetHeight / h0));
-  ctx.font = `${weight} ${size}px "${family}"`;
-  let w = ctx.measureText(text || ' ').width;
-  if (w > maxWidth) size = size * (maxWidth / w);
-  return Math.max(10, size);
-}
-
-function drawStyledLine(ctx, text, x, y, family, weight, size, mode) {
-  if (!text) return 0;
-  ctx.font = `${weight} ${size}px "${family}"`;
-  ctx.textBaseline = 'alphabetic';
-  const skew = -0.17; // slight italic lean to match the brand mark
-  ctx.save();
-  ctx.transform(1, 0, skew, 1, x - skew * y, 0);
-  if (mode === 'solid') {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(text, x, y);
+async function setBackground(bg) {
+  design.background = bg;
+  if (window.__bgNode) { window.__bgNode.destroy(); window.__bgNode = null; }
+  let node;
+  if (bg.type === 'color') {
+    node = new Konva.Rect({ x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, fill: bg.value, listening: false });
   } else {
-    ctx.strokeStyle = 'rgb(36,163,228)';
-    ctx.lineWidth = Math.max(2, size * 0.045);
-    ctx.lineJoin = 'round';
-    ctx.strokeText(text, x, y);
+    const imgEl = await loadImageEl(bg.src);
+    node = new Konva.Image({ x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, image: imgEl, listening: false });
   }
-  ctx.restore();
-  const m = ctx.measureText(text);
-  return (m.actualBoundingBoxAscent || size * 0.72) + (m.actualBoundingBoxDescent || size * 0.02);
+  window.__bgNode = node;
+  mainLayer.add(node);
+  node.moveToBottom();
+  mainLayer.draw();
+  document.getElementById('bgType').value = bg.type;
+  document.getElementById('bgColorRow').style.display = bg.type === 'color' ? 'flex' : 'none';
+  if (bg.type === 'color') document.getElementById('bgColorInput').value = bg.value;
 }
 
-function drawVariant(variant) {
-  const ctx = variant.ctx;
-  const state = variant.state;
-  const t = variant.text;
-  const font = FONTS.find(f => f.key === t.fontKey) || FONTS[0];
-
-  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-  ctx.fillStyle = '#070a1f';
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  ctx.save();
-  roundedRectPath(ctx, HOLE.x, HOLE.y, HOLE.w, HOLE.h, HOLE.r);
-  ctx.clip();
-  ctx.drawImage(state.img, state.drawX, state.drawY, state.img.width * state.scale, state.img.height * state.scale);
-  ctx.restore();
-  if (variant.overlayImg) ctx.drawImage(variant.overlayImg, 0, 0, CANVAS_W, CANVAS_H);
-
-  const pct = (t.sizePct || 100) / 100;
-  const baseH1 = 95 * pct, baseH2 = 118 * pct;
-  const size1 = fitFontSize(ctx, t.line1, font.family, t.weight, baseH1, TEXT_BOX.maxWidth);
-  let y = TEXT_BOX.y + size1 * 0.78;
-  drawStyledLine(ctx, t.line1, TEXT_BOX.x, y, font.family, t.weight, size1, 'solid');
-
-  const size2 = fitFontSize(ctx, t.line2, font.family, t.weight, baseH2, TEXT_BOX.maxWidth);
-  y += size2 * 0.9;
-  drawStyledLine(ctx, t.line2, TEXT_BOX.x, y, font.family, t.weight, size2, 'outline');
+function loadImageEl(src) {
+  return new Promise(resolve => {
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(img);
+    img.src = src;
+  });
 }
 
-function renderAll(variants) {
-  variants.forEach(drawVariant);
+// ---- node creators ----
+function createTextNode(layer) {
+  const node = new Konva.Text({
+    x: layer.x, y: layer.y, rotation: layer.rotation || 0,
+    text: layer.text, fontFamily: fontFamily(layer.fontKey), fontSize: layer.size,
+    fontStyle: `${layer.weight}${layer.italic ? ' italic' : ''}`,
+    draggable: true,
+  });
+  applyTextPaint(node, layer);
+  node.setAttrs({ layerId: layer.id, layerType: 'text' });
+  node.on('dragend', () => { layer.x = node.x(); layer.y = node.y(); });
+  node.on('transformend', () => {
+    const scaleY = node.scaleY();
+    layer.size = Math.max(6, Math.round(layer.size * scaleY));
+    node.fontSize(layer.size);
+    node.scale({ x: 1, y: 1 });
+    layer.x = node.x(); layer.y = node.y(); layer.rotation = node.rotation();
+  });
+  return node;
+}
+function applyTextPaint(node, layer) {
+  if (layer.mode === 'outline') {
+    node.fill(null);
+    node.stroke(layer.strokeColor || 'rgb(36,163,228)');
+    node.strokeWidth(Math.max(1.5, layer.size * 0.045));
+  } else {
+    node.fill(layer.color || '#ffffff');
+    node.stroke(null);
+    node.strokeWidth(0);
+  }
 }
 
+function createShapeNode(layer) {
+  const group = new Konva.Group({ x: layer.x, y: layer.y, rotation: layer.rotation || 0, draggable: true });
+  const rect = new Konva.Rect({ width: layer.width, height: layer.height, fill: layer.fill, cornerRadius: layer.cornerRadius || 0 });
+  const text = new Konva.Text({
+    width: layer.width, height: layer.height, text: layer.text || '',
+    fill: layer.textColor || '#ffffff', align: 'center', verticalAlign: 'middle',
+    fontSize: layer.fontSize || 34, fontStyle: 'bold', fontFamily: 'Arial, sans-serif',
+  });
+  group.add(rect); group.add(text);
+  group.setAttrs({ layerId: layer.id, layerType: 'shape' });
+  group._rect = rect; group._text = text;
+  group.on('dragend', () => { layer.x = group.x(); layer.y = group.y(); });
+  group.on('transformend', () => {
+    const sx = group.scaleX(), sy = group.scaleY();
+    const newW = Math.max(20, layer.width * sx), newH = Math.max(20, layer.height * sy);
+    rect.width(newW); rect.height(newH);
+    text.width(newW); text.height(newH);
+    group.scale({ x: 1, y: 1 });
+    layer.width = newW; layer.height = newH; layer.x = group.x(); layer.y = group.y(); layer.rotation = group.rotation();
+  });
+  return group;
+}
+
+async function createImageNode(layer) {
+  if (!layer.src) {
+    const rect = new Konva.Rect({
+      x: layer.x, y: layer.y, width: layer.width, height: layer.height, rotation: layer.rotation || 0,
+      fill: 'rgba(255,255,255,0.06)', stroke: '#2aa9ff', strokeWidth: 2, dash: [8, 6],
+      cornerRadius: layer.cornerRadius || 0, draggable: true,
+    });
+    rect.setAttrs({ layerId: layer.id, layerType: 'image-empty' });
+    rect.on('dragend', () => { layer.x = rect.x(); layer.y = rect.y(); });
+    rect.on('transformend', () => {
+      const newW = Math.max(10, rect.width() * rect.scaleX()), newH = Math.max(10, rect.height() * rect.scaleY());
+      rect.width(newW); rect.height(newH); rect.scale({ x: 1, y: 1 });
+      layer.width = newW; layer.height = newH; layer.x = rect.x(); layer.y = rect.y(); layer.rotation = rect.rotation();
+    });
+    return rect;
+  }
+  const imgEl = await loadImageEl(layer.src);
+  const node = new Konva.Image({
+    x: layer.x, y: layer.y, width: layer.width, height: layer.height, rotation: layer.rotation || 0,
+    image: imgEl, cornerRadius: layer.cornerRadius || 0, draggable: true,
+  });
+  node.setAttrs({ layerId: layer.id, layerType: 'image' });
+  node.on('dragend', () => { layer.x = node.x(); layer.y = node.y(); });
+  node.on('transformend', () => {
+    const newW = Math.max(10, node.width() * node.scaleX()), newH = Math.max(10, node.height() * node.scaleY());
+    node.width(newW); node.height(newH); node.scale({ x: 1, y: 1 });
+    layer.width = newW; layer.height = newH; layer.x = node.x(); layer.y = node.y(); layer.rotation = node.rotation();
+  });
+  return node;
+}
+
+function findLayer(id) { return design.layers.find(l => l.id === id); }
+
+async function replaceImageSrc(id, src) {
+  const layer = findLayer(id);
+  layer.src = src;
+  const old = nodesById[id];
+  const wasSelected = selectedId === id;
+  old.destroy();
+  const node = await createImageNode(layer);
+  mainLayer.add(node);
+  nodesById[id] = node;
+  if (wasSelected) selectNode(id); else mainLayer.draw();
+}
+
+// ============== SELECTION ==============
+function selectNode(id) {
+  selectedId = id;
+  const node = nodesById[id];
+  const layer = findLayer(id);
+  transformer.nodes([node]);
+  transformer.keepRatio(layer.type === 'image' || node.getAttr('layerType') === 'image-empty');
+  transformer.enabledAnchors(layer.type === 'text'
+    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+    : ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']);
+  mainLayer.draw();
+  document.getElementById('deleteBtn').disabled = false;
+  showProps(layer, node);
+}
+function deselectAll() {
+  selectedId = null;
+  if (transformer) { transformer.nodes([]); mainLayer.draw(); }
+  document.getElementById('deleteBtn').disabled = true;
+  showProps(null);
+}
+
+document.getElementById('deleteBtn').addEventListener('click', () => {
+  if (!selectedId) return;
+  nodesById[selectedId].destroy();
+  delete nodesById[selectedId];
+  design.layers = design.layers.filter(l => l.id !== selectedId);
+  deselectAll();
+  mainLayer.draw();
+});
+
+// ============== PROPERTIES PANEL ==============
+function showProps(layer, node) {
+  const panel = document.getElementById('propsPanel');
+  panel.innerHTML = '<h4>Propriedades</h4>';
+  if (!layer) {
+    panel.innerHTML += '<div class="empty-hint">Toque num elemento na arte pra editar.</div>';
+    return;
+  }
+  if (layer.type === 'text') return showTextProps(panel, layer, node);
+  if (layer.type === 'shape') return showShapeProps(panel, layer, node);
+  if (layer.type === 'image') return showImageProps(panel, layer, node);
+}
+
+function row(label) {
+  const r = document.createElement('div');
+  r.className = 'field-row';
+  const l = document.createElement('label');
+  l.textContent = label;
+  r.appendChild(l);
+  return r;
+}
+
+function showTextProps(panel, layer, node) {
+  const r1 = row('Texto');
+  const input = document.createElement('input');
+  input.type = 'text'; input.value = layer.text; input.maxLength = 60;
+  input.addEventListener('input', () => { layer.text = input.value; node.text(input.value); mainLayer.draw(); });
+  r1.appendChild(input); panel.appendChild(r1);
+
+  const r2 = row('Fonte');
+  const fontSel = document.createElement('select');
+  fontSel.innerHTML = FONTS.map(f => `<option value="${f.key}" ${f.key === layer.fontKey ? 'selected' : ''}>${f.family}</option>`).join('');
+  fontSel.addEventListener('change', async () => {
+    layer.fontKey = fontSel.value;
+    const f = FONTS.find(x => x.key === fontSel.value);
+    layer.weight = f.weights[f.weights.length - 1];
+    await Promise.all(f.weights.map(w => document.fonts.load(`${w} 80px "${f.family}"`)));
+    node.fontFamily(f.family);
+    node.fontStyle(`${layer.weight}${layer.italic ? ' italic' : ''}`);
+    weightSel.innerHTML = f.weights.map(w => `<option value="${w}" ${w === layer.weight ? 'selected' : ''}>${WEIGHT_LABELS[w] || w}</option>`).join('');
+    mainLayer.draw();
+  });
+  r2.appendChild(fontSel); panel.appendChild(r2);
+
+  const r3 = row('Peso');
+  const weightSel = document.createElement('select');
+  const f0 = FONTS.find(x => x.key === layer.fontKey);
+  weightSel.innerHTML = f0.weights.map(w => `<option value="${w}" ${w === layer.weight ? 'selected' : ''}>${WEIGHT_LABELS[w] || w}</option>`).join('');
+  weightSel.addEventListener('change', () => {
+    layer.weight = Number(weightSel.value);
+    node.fontStyle(`${layer.weight}${layer.italic ? ' italic' : ''}`);
+    mainLayer.draw();
+  });
+  r3.appendChild(weightSel); panel.appendChild(r3);
+
+  const r4 = row('Tamanho');
+  const sizeSlider = document.createElement('input');
+  sizeSlider.type = 'range'; sizeSlider.min = '20'; sizeSlider.max = '260'; sizeSlider.value = String(layer.size);
+  sizeSlider.addEventListener('input', () => { layer.size = Number(sizeSlider.value); node.fontSize(layer.size); mainLayer.draw(); });
+  r4.appendChild(sizeSlider); panel.appendChild(r4);
+
+  const r5 = row('Estilo');
+  const modeSel = document.createElement('select');
+  modeSel.innerHTML = `<option value="solid" ${layer.mode === 'solid' ? 'selected' : ''}>Sólido</option><option value="outline" ${layer.mode === 'outline' ? 'selected' : ''}>Contorno</option>`;
+  modeSel.addEventListener('change', () => { layer.mode = modeSel.value; applyTextPaint(node, layer); mainLayer.draw(); });
+  r5.appendChild(modeSel); panel.appendChild(r5);
+
+  const r6 = row('Cor');
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color'; colorInput.value = layer.mode === 'outline' ? rgbToHex(layer.strokeColor) : layer.color;
+  colorInput.addEventListener('input', () => {
+    if (layer.mode === 'outline') layer.strokeColor = colorInput.value; else layer.color = colorInput.value;
+    applyTextPaint(node, layer); mainLayer.draw();
+  });
+  r6.appendChild(colorInput); panel.appendChild(r6);
+
+  const r7 = row('Itálico');
+  const italicCheck = document.createElement('input');
+  italicCheck.type = 'checkbox'; italicCheck.checked = !!layer.italic;
+  italicCheck.addEventListener('change', () => {
+    layer.italic = italicCheck.checked;
+    node.fontStyle(`${layer.weight}${layer.italic ? ' italic' : ''}`);
+    mainLayer.draw();
+  });
+  r7.appendChild(italicCheck); panel.appendChild(r7);
+}
+
+function rgbToHex(rgb) {
+  if (!rgb) return '#2aa9ff';
+  if (rgb.startsWith('#')) return rgb;
+  const m = rgb.match(/\d+/g);
+  if (!m) return '#2aa9ff';
+  return '#' + m.slice(0, 3).map(n => Number(n).toString(16).padStart(2, '0')).join('');
+}
+
+function showImageProps(panel, layer, node) {
+  const r1 = row('Cantos');
+  const radiusSlider = document.createElement('input');
+  radiusSlider.type = 'range'; radiusSlider.min = '0'; radiusSlider.max = '120'; radiusSlider.value = String(layer.cornerRadius || 0);
+  radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node.cornerRadius(layer.cornerRadius); mainLayer.draw(); });
+  r1.appendChild(radiusSlider); panel.appendChild(r1);
+
+  if (layer.role !== 'fixed_asset') {
+    const btn = document.createElement('button');
+    btn.className = 'btn secondary small';
+    btn.style.width = '100%';
+    btn.textContent = '🖼️ Trocar foto';
+    btn.addEventListener('click', () => pickImage(url => replaceImageSrc(layer.id, url)));
+    panel.appendChild(btn);
+  }
+}
+
+function showShapeProps(panel, layer, node) {
+  const r1 = row('Cor');
+  const fillInput = document.createElement('input');
+  fillInput.type = 'color'; fillInput.value = layer.fill;
+  fillInput.addEventListener('input', () => { layer.fill = fillInput.value; node._rect.fill(layer.fill); mainLayer.draw(); });
+  r1.appendChild(fillInput); panel.appendChild(r1);
+
+  const r2 = row('Cantos');
+  const radiusSlider = document.createElement('input');
+  radiusSlider.type = 'range'; radiusSlider.min = '0'; radiusSlider.max = '100'; radiusSlider.value = String(layer.cornerRadius || 0);
+  radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node._rect.cornerRadius(layer.cornerRadius); mainLayer.draw(); });
+  r2.appendChild(radiusSlider); panel.appendChild(r2);
+
+  const r3 = row('Texto');
+  const textInput = document.createElement('input');
+  textInput.type = 'text'; textInput.value = layer.text || ''; textInput.maxLength = 24;
+  textInput.addEventListener('input', () => { layer.text = textInput.value; node._text.text(layer.text); mainLayer.draw(); });
+  r3.appendChild(textInput); panel.appendChild(r3);
+
+  const r4 = row('Cor texto');
+  const textColorInput = document.createElement('input');
+  textColorInput.type = 'color'; textColorInput.value = layer.textColor || '#ffffff';
+  textColorInput.addEventListener('input', () => { layer.textColor = textColorInput.value; node._text.fill(layer.textColor); mainLayer.draw(); });
+  r4.appendChild(textColorInput); panel.appendChild(r4);
+}
+
+// ============== TOOLBAR ==============
+function newLayerId() { return 'l' + Date.now() + Math.floor(Math.random() * 1000); }
+
+document.getElementById('addTextBtn').addEventListener('click', () => {
+  const layer = {
+    id: newLayerId(), type: 'text', x: 200, y: 700, rotation: 0,
+    text: 'Novo texto', fontKey: 'anton', weight: 400, size: 70, mode: 'solid', color: '#ffffff',
+    strokeColor: 'rgb(36,163,228)', italic: false,
+  };
+  design.layers.push(layer);
+  const node = createTextNode(layer);
+  mainLayer.add(node); nodesById[layer.id] = node;
+  transformer.moveToTop();
+  mainLayer.draw();
+  selectNode(layer.id);
+});
+
+document.getElementById('addPhotoBtn').addEventListener('click', () => {
+  pickImage(async url => {
+    const layer = { id: newLayerId(), type: 'image', role: 'product_photo', x: 240, y: 800, width: 600, height: 600, rotation: 0, cornerRadius: 16, src: url };
+    design.layers.push(layer);
+    const node = await createImageNode(layer);
+    mainLayer.add(node); nodesById[layer.id] = node;
+    transformer.moveToTop();
+    mainLayer.draw();
+    selectNode(layer.id);
+  });
+});
+
+document.getElementById('addLogoBtn').addEventListener('click', async () => {
+  const layer = { id: newLayerId(), type: 'image', role: 'fixed_asset', src: '/logo-citech.png', x: 90, y: 1650, width: 700, height: 158, rotation: 0, cornerRadius: 0 };
+  design.layers.push(layer);
+  const node = await createImageNode(layer);
+  mainLayer.add(node); nodesById[layer.id] = node;
+  transformer.moveToTop();
+  mainLayer.draw();
+  selectNode(layer.id);
+});
+
+document.getElementById('addShapeBtn').addEventListener('click', () => {
+  const layer = { id: newLayerId(), type: 'shape', x: 290, y: 900, width: 320, height: 100, rotation: 0, fill: '#2aa9ff', cornerRadius: 14, text: 'OFERTA', textColor: '#ffffff' };
+  design.layers.push(layer);
+  const node = createShapeNode(layer);
+  mainLayer.add(node); nodesById[layer.id] = node;
+  transformer.moveToTop();
+  mainLayer.draw();
+  selectNode(layer.id);
+});
+
+document.getElementById('bgType').addEventListener('change', (e) => {
+  document.getElementById('bgColorRow').style.display = e.target.value === 'color' ? 'flex' : 'none';
+  if (e.target.value === 'color') setBackground({ type: 'color', value: document.getElementById('bgColorInput').value });
+});
+document.getElementById('bgColorInput').addEventListener('input', (e) => setBackground({ type: 'color', value: e.target.value }));
+document.getElementById('bgImageBtn').addEventListener('click', () => {
+  pickImage(url => {
+    document.getElementById('bgType').value = 'image';
+    document.getElementById('bgColorRow').style.display = 'none';
+    setBackground({ type: 'image', src: url });
+  });
+});
+document.getElementById('bgBtn').addEventListener('click', () => {
+  document.querySelector('.panel-card:nth-of-type(2)')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+// ============== EXPORT / SAVE ==============
+function exportCanvas() {
+  transformer.nodes([]);
+  mainLayer.draw();
+  const canvas = stage.toCanvas({ width: CANVAS_W, height: CANVAS_H, pixelRatio: 1 });
+  if (selectedId) { transformer.nodes([nodesById[selectedId]]); mainLayer.draw(); }
+  return canvas;
+}
 function canvasToBlob(canvas) {
   return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
 }
 
-async function downloadCanvas(canvas, filename) {
-  const blob = await canvasToBlob(canvas);
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+  const blob = await canvasToBlob(exportCanvas());
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.download = `citech-arte-${Date.now()}.jpg`;
+  document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
+});
 
-async function shareCanvas(canvas, label, noteEl) {
-  const blob = await canvasToBlob(canvas);
-  const file = new File([blob], `citech-${label.toLowerCase().replace(/\s+/g,'-')}.jpg`, { type: 'image/jpeg' });
+document.getElementById('shareBtn').addEventListener('click', async () => {
+  const noteEl = document.getElementById('shareNote');
+  const blob = await canvasToBlob(exportCanvas());
+  const file = new File([blob], 'citech-arte.jpg', { type: 'image/jpeg' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'CI.TECH', text: 'Confira!' });
-      return;
-    } catch (err) {
-      if (err && err.name === 'AbortError') return;
-    }
+    try { await navigator.share({ files: [file], title: 'CI.TECH', text: 'Confira!' }); return; }
+    catch (err) { if (err && err.name === 'AbortError') return; }
   }
-  if (noteEl) {
-    noteEl.textContent = 'Compartilhamento direto indisponível aqui (precisa HTTPS) — baixando a imagem pra você enviar manualmente.';
-  }
-  downloadCanvas(canvas, `citech-${label.toLowerCase().replace(/\s+/g,'-')}.jpg`);
-}
+  noteEl.textContent = 'Compartilhamento direto indisponível aqui (precisa HTTPS) — baixando a imagem.';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'citech-arte.jpg';
+  document.body.appendChild(a); a.click(); a.remove();
+});
 
-async function saveToGallery(canvas, templateKey, productName, noteEl) {
-  const blob = await canvasToBlob(canvas);
+document.getElementById('saveGalleryBtn').addEventListener('click', async () => {
+  const noteEl = document.getElementById('shareNote');
+  const blob = await canvasToBlob(exportCanvas());
   const form = new FormData();
-  form.append('image', blob, `citech-${templateKey}.jpg`);
-  form.append('template', templateKey);
+  form.append('image', blob, 'arte.jpg');
+  form.append('template', design.__sourceName || 'Personalizado');
+  const productName = document.getElementById('productNameInput').value;
   if (productName) form.append('product_name', productName);
-  try {
-    const resp = await fetch('/api/posts', { method: 'POST', body: form });
-    if (resp.status === 401) { location.href = '/login.html'; return; }
-    if (!resp.ok) throw new Error('falha ao salvar');
-    if (noteEl) noteEl.textContent = '✅ Salvo na galeria.';
-  } catch (err) {
-    if (noteEl) noteEl.textContent = 'Não consegui salvar na galeria agora (sem conexão com o servidor?).';
-  }
-}
+  const resp = await fetch('/api/posts', { method: 'POST', body: form });
+  if (resp.status === 401) { location.href = '/login.html'; return; }
+  noteEl.textContent = resp.ok ? '✅ Salvo na galeria.' : 'Não consegui salvar na galeria agora.';
+});
 
-async function downloadAll() {
-  for (const c of cards) {
-    for (const v of c.variants) {
-      downloadCanvas(v.canvas, `citech-${v.key}-${Date.now()}.jpg`);
-      await new Promise(r => setTimeout(r, 250));
-    }
-  }
-}
+document.getElementById('saveTemplateBtn').addEventListener('click', async () => {
+  const nameInput = document.getElementById('templateNameInput');
+  const name = nameInput.value.trim();
+  if (!name) { nameInput.focus(); return; }
 
-function clearAll() {
-  cards.splice(0, cards.length);
-  cardsEl.innerHTML = '';
-  updateEmptyState();
-}
+  const layoutToSave = JSON.parse(JSON.stringify(design));
+  layoutToSave.layers.forEach(l => {
+    if (l.type === 'image' && l.role === 'product_photo') delete l.src;
+  });
+  delete layoutToSave.__sourceName;
 
-function updateEmptyState() {
-  const has = cards.length > 0;
-  emptyState.style.display = has ? 'none' : 'block';
-  bulkRow.style.display = has ? 'flex' : 'none';
-}
+  const fullCanvas = exportCanvas();
+  const thumbCanvas = document.createElement('canvas');
+  thumbCanvas.width = 270; thumbCanvas.height = 480;
+  thumbCanvas.getContext('2d').drawImage(fullCanvas, 0, 0, 270, 480);
+  const thumbBlob = await canvasToBlob(thumbCanvas);
+
+  const form = new FormData();
+  form.append('name', name);
+  form.append('layout_json', JSON.stringify(layoutToSave));
+  form.append('thumbnail', thumbBlob, 'thumb.jpg');
+  const resp = await fetch('/api/templates', { method: 'POST', body: form });
+  const noteEl = document.getElementById('shareNote');
+  noteEl.textContent = resp.ok ? `✅ Template "${name}" salvo.` : 'Não consegui salvar o template.';
+  if (resp.ok) { design.__sourceName = name; nameInput.value = ''; }
+});
+
+// ============== INIT ==============
+loadTemplateGrid();
 </script>
 </body>
 </html>

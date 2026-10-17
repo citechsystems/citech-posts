@@ -37,6 +37,14 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    layout_json TEXT NOT NULL,
+    thumbnail_filename TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 // Seed an initial admin user on first boot so there's always a way in.
@@ -57,7 +65,44 @@ if (userCount === 0) {
   console.log('========================================');
 }
 
-const VALID_TEMPLATES = new Set(['novidade', 'promocao', 'produtos']);
+// Seed the 3 original presets as starter templates for the free-form editor.
+const templateCount = db.prepare('SELECT COUNT(*) AS n FROM templates').get().n;
+if (templateCount === 0) {
+  let uid = 0;
+  const nextId = () => `l${++uid}`;
+  const textLayer = (text, y, size, mode) => ({
+    id: nextId(), type: 'text', x: 132, y, width: 820, height: size * 1.3, rotation: 0,
+    text, fontKey: 'anton', weight: 400, size, align: 'left',
+    mode, color: '#ffffff', strokeColor: 'rgb(36,163,228)',
+  });
+  const photoLayer = () => ({
+    id: nextId(), type: 'image', x: 139, y: 428, width: 802, height: 1094, rotation: 0,
+    role: 'product_photo', cornerRadius: 28,
+  });
+  const logoLayer = () => ({
+    id: nextId(), type: 'image', x: 90, y: 1561, width: 900, height: 203, rotation: 0,
+    role: 'fixed_asset', src: '/logo-citech.png', cornerRadius: 0,
+  });
+  const factoryTemplate = (name, line1, line2) => ({
+    name,
+    background: { type: 'image', src: '/bg-clean.jpg' },
+    layers: [
+      textLayer(line1, 165, 95, 'solid'),
+      textLayer(line2, 270, 118, 'outline'),
+      photoLayer(),
+      logoLayer(),
+    ],
+  });
+
+  const factoryTemplates = [
+    factoryTemplate('Chegou Novidade', 'CHEGOU', 'NOVIDADE'),
+    factoryTemplate('Tem Promoção', 'TEM', 'PROMOÇÃO'),
+    factoryTemplate('Nossos Produtos', 'NOSSOS', 'PRODUTOS'),
+  ];
+  const insertTpl = db.prepare('INSERT INTO templates (name, layout_json) VALUES (?, ?)');
+  factoryTemplates.forEach(t => insertTpl.run(t.name, JSON.stringify(t)));
+  console.log(`${factoryTemplates.length} templates de fábrica criados.`);
+}
 
 // ---- cookies (minimal, no extra dependency) ----
 function parseCookies(req) {
@@ -108,7 +153,15 @@ function getUserFromRequest(req) {
   return db.prepare('SELECT id, username FROM users WHERE id = ?').get(session.user_id);
 }
 
-const PUBLIC_PAGES = new Set(['/login.html']);
+const PUBLIC_PAGES = new Set([
+  '/login.html',
+  '/manifest.json',
+  '/favicon-32.png',
+  '/apple-touch-icon.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/logo-citech.png',
+]);
 const PUBLIC_API_PREFIXES = ['/api/login', '/api/health'];
 
 function requireAuthPage(req, res, next) {
@@ -181,7 +234,9 @@ app.use(requireAuthPage, express.static(path.join(__dirname, 'public')));
 
 app.post('/api/posts', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'imagem ausente ou inválida' });
-  const template = VALID_TEMPLATES.has(req.body.template) ? req.body.template : 'novidade';
+  const template = typeof req.body.template === 'string' && req.body.template.trim()
+    ? req.body.template.trim().slice(0, 80)
+    : 'Personalizado';
   const productName = typeof req.body.product_name === 'string' ? req.body.product_name.slice(0, 200) : null;
 
   const stmt = db.prepare(
@@ -201,7 +256,7 @@ app.post('/api/posts', upload.single('image'), (req, res) => {
 app.get('/api/posts', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
   const cursor = parseInt(req.query.cursor, 10) || 0;
-  const template = VALID_TEMPLATES.has(req.query.template) ? req.query.template : null;
+  const template = typeof req.query.template === 'string' && req.query.template.trim() ? req.query.template.trim() : null;
 
   let rows;
   if (template) {
@@ -222,11 +277,87 @@ app.get('/api/posts', (req, res) => {
   });
 });
 
+app.get('/api/post-template-names', (req, res) => {
+  const rows = db.prepare('SELECT DISTINCT template FROM posts ORDER BY template').all();
+  res.json({ items: rows.map(r => r.template) });
+});
+
 app.delete('/api/posts/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'não encontrado' });
   db.prepare('DELETE FROM posts WHERE id = ?').run(req.params.id);
   fs.unlink(path.join(UPLOADS_DIR, row.filename), () => {});
+  res.json({ ok: true });
+});
+
+// --- templates (saved editor layouts) ---
+app.get('/api/templates', (req, res) => {
+  const rows = db.prepare('SELECT id, name, thumbnail_filename, created_at, updated_at FROM templates ORDER BY id DESC').all();
+  res.json({
+    items: rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      thumbnail_url: r.thumbnail_filename ? `/uploads/${r.thumbnail_filename}` : null,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    })),
+  });
+});
+
+app.get('/api/templates/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'não encontrado' });
+  res.json({
+    id: row.id,
+    name: row.name,
+    layout: JSON.parse(row.layout_json),
+    thumbnail_url: row.thumbnail_filename ? `/uploads/${row.thumbnail_filename}` : null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  });
+});
+
+app.post('/api/templates', upload.single('thumbnail'), (req, res) => {
+  const name = typeof req.body.name === 'string' ? req.body.name.trim().slice(0, 120) : '';
+  if (!name) return res.status(400).json({ error: 'nome do template obrigatório' });
+  let layout;
+  try {
+    layout = JSON.parse(req.body.layout_json);
+  } catch {
+    return res.status(400).json({ error: 'layout_json inválido' });
+  }
+  const thumbFilename = req.file ? req.file.filename : null;
+  const info = db
+    .prepare('INSERT INTO templates (name, layout_json, thumbnail_filename) VALUES (?, ?, ?)')
+    .run(name, JSON.stringify(layout), thumbFilename);
+  res.status(201).json({ id: info.lastInsertRowid, name });
+});
+
+app.put('/api/templates/:id', upload.single('thumbnail'), (req, res) => {
+  const existing = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'não encontrado' });
+  const name = typeof req.body.name === 'string' ? req.body.name.trim().slice(0, 120) : existing.name;
+  let layout;
+  try {
+    layout = req.body.layout_json ? JSON.parse(req.body.layout_json) : JSON.parse(existing.layout_json);
+  } catch {
+    return res.status(400).json({ error: 'layout_json inválido' });
+  }
+  let thumbFilename = existing.thumbnail_filename;
+  if (req.file) {
+    if (existing.thumbnail_filename) fs.unlink(path.join(UPLOADS_DIR, existing.thumbnail_filename), () => {});
+    thumbFilename = req.file.filename;
+  }
+  db.prepare("UPDATE templates SET name = ?, layout_json = ?, thumbnail_filename = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(name, JSON.stringify(layout), thumbFilename, req.params.id);
+  res.json({ id: Number(req.params.id), name });
+});
+
+app.delete('/api/templates/:id', (req, res) => {
+  const row = db.prepare('SELECT * FROM templates WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'não encontrado' });
+  db.prepare('DELETE FROM templates WHERE id = ?').run(req.params.id);
+  if (row.thumbnail_filename) fs.unlink(path.join(UPLOADS_DIR, row.thumbnail_filename), () => {});
   res.json({ ok: true });
 });
 
