@@ -1,0 +1,18 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, citech-posts]
+    steps:
+      - name: Atualizar e subir o container
+        run: |
+          cd ~/projects/citech-posts
+          git fetch origin main
+          git reset --hard origin/main
+          docker compose up -d --build
+          docker compose ps
