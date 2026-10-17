@@ -14,9 +14,7 @@ services:
       - SQLITE_FILE=/app/data/posts.sqlite
       - UPLOADS_DIR=/app/uploads
     volumes:
-      # Ajuste o prefixo do host pro caminho real no servidor de homol.
-      # Crie as pastas antes do primeiro "docker compose up" (senão o Docker
-      # cria arquivo/pasta errado por engano):
-      #   mkdir -p /root/citech-posts/data /root/citech-posts/uploads
-      - /root/citech-posts/data:/app/data
-      - /root/citech-posts/uploads:/app/uploads
+      # Caminhos relativos à pasta deste docker-compose.yml — funcionam
+      # com qualquer usuário/pasta de deploy, sem precisar ajustar nada.
+      - ./data:/app/data
+      - ./uploads:/app/uploads

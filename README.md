@@ -19,7 +19,7 @@ Abre em `http://localhost:3010`.
 ## Rodar com Docker
 
 ```bash
-mkdir -p /root/citech-posts/data /root/citech-posts/uploads   # ajuste o caminho se quiser outro
+mkdir -p data uploads   # se ainda não existirem
 docker compose up -d --build
 ```
 
