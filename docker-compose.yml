@@ -15,6 +15,18 @@ services:
       - PORT=3010
       - SQLITE_FILE=/app/data/posts.sqlite
       - UPLOADS_DIR=/app/uploads
+      # Usuário/senha do primeiro login, criado automaticamente no boot se
+      # ainda não existir nenhum usuário no banco. Se ADMIN_PASSWORD não for
+      # definida, uma senha aleatória é gerada e impressa uma vez no log
+      # (docker compose logs citech-posts) — defina aqui pra controlar a senha
+      # inicial, ou deixe em branco e pegue a gerada no log.
+      - ADMIN_USERNAME=admin
+      # - ADMIN_PASSWORD=
+      # Depois de publicar no subdomínio HTTPS (via cloudflared), mude pra
+      # "true" — isso faz o cookie de sessão só trafegar por HTTPS. Em "false"
+      # (padrão) funciona tanto local quanto atrás do túnel, mas sem essa
+      # proteção extra do cookie.
+      - COOKIE_SECURE=false
     volumes:
       # Caminhos relativos à pasta deste docker-compose.yml — funcionam
       # com qualquer usuário/pasta de deploy, sem precisar ajustar nada.

@@ -25,6 +25,18 @@ docker compose up -d --build
 
 Isso sobe o container na porta `8091` do host (configurável no `docker-compose.yml`), com o SQLite e os uploads persistidos fora do container.
 
+## Login e controle de acesso
+
+Toda a aplicação (gerador, galeria, API) fica atrás de login. No primeiro boot, se não existir nenhum usuário no banco, um usuário admin é criado automaticamente — as credenciais aparecem uma vez no log:
+
+```bash
+docker compose logs citech-posts
+```
+
+Pra fixar usuário/senha iniciais em vez de deixar gerar sozinho, defina `ADMIN_USERNAME`/`ADMIN_PASSWORD` no `docker-compose.yml` antes do primeiro `up`.
+
+Depois de logado, qualquer usuário pode adicionar ou remover outros em **👤 Usuários** (não dá pra remover o próprio usuário logado nem o último usuário que sobrar, pra não trancar o acesso).
+
 ## Publicar num subdomínio (Cloudflare Tunnel)
 
 Isso aqui eu não apliquei — depende do túnel/config que já está sendo gerenciado na conversa "Configurar Servidores Docker". O que falta fazer lá, resumido:
@@ -44,6 +56,8 @@ Isso aqui eu não apliquei — depende do túnel/config que já está sendo gere
 4. Reiniciar o `cloudflared`.
 
 Se o túnel já roda via Docker Compose na mesma rede, o mais simples é colocar o `citech-posts` na mesma `network:` externa do cloudflared e usar o nome do serviço (`http://citech-posts:3010`) em vez de `localhost`, sem precisar nem publicar a porta no host.
+
+Depois de publicado em HTTPS, mude `COOKIE_SECURE` pra `true` no `docker-compose.yml` e suba de novo (`docker compose up -d --build`) — isso faz o cookie de login só trafegar por conexão segura.
 
 ## Por que o compartilhamento direto pro Instagram só funciona hospedado
 

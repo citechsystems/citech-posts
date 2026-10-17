@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CI.TECH — Usuários</title>
+<style>
+  :root{
+    --bg:#070a1f; --panel:#0d1230; --panel2:#121a3f;
+    --blue:#2aa9ff; --blue2:#1565ff; --text:#eef2ff; --muted:#8d97c4; --border:#243068;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; padding-bottom:60px;
+    background:radial-gradient(circle at 50% 0%, #0d1540 0%, var(--bg) 60%);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  header{padding:28px 20px 18px; text-align:center;}
+  header h1{margin:0 0 6px; font-size:22px;}
+  header h1 span{color:var(--blue);}
+  .wrap{max-width:560px; margin:0 auto; padding:0 16px;}
+  .toolbar{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:24px;}
+  .btn{
+    appearance:none; border:none; border-radius:12px; padding:12px 18px;
+    font-size:14px; font-weight:600; cursor:pointer; color:#fff; text-decoration:none;
+    background:linear-gradient(135deg,var(--blue),var(--blue2)); display:inline-block;
+  }
+  .btn.secondary{background:var(--panel2); border:1px solid var(--border); color:var(--text);}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px; margin-bottom:20px;}
+  .card h2{font-size:15px; margin:0 0 14px;}
+  input{
+    width:100%; background:var(--panel2); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:11px 13px; font-size:14px; margin-bottom:12px;
+  }
+  .row{display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border);}
+  .row:last-child{border-bottom:none;}
+  .row .uname{font-size:14px;}
+  .row .udate{font-size:11.5px; color:var(--muted);}
+  .error{color:#ff6b6b; font-size:13px; margin:-4px 0 12px; min-height:16px;}
+  .ok{color:#4ade80; font-size:13px; margin:-4px 0 12px; min-height:16px;}
+  .rmBtn{
+    background:none; border:1px solid var(--border); color:var(--muted);
+    border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>CI.TECH <span>·</span> Usuários</h1>
+</header>
+<div class="wrap">
+  <div class="toolbar">
+    <a class="btn secondary" href="/">⬅️ Gerador</a>
+    <a class="btn secondary" href="/gallery.html">📁 Galeria</a>
+  </div>
+
+  <div class="card">
+    <h2>Adicionar usuário</h2>
+    <div class="error" id="addError"></div>
+    <div class="ok" id="addOk"></div>
+    <input id="newUsername" placeholder="Usuário">
+    <input id="newPassword" type="password" placeholder="Senha (mín. 4 caracteres)">
+    <button class="btn" id="addBtn" style="width:100%;">➕ Adicionar</button>
+  </div>
+
+  <div class="card">
+    <h2>Usuários com acesso</h2>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+const list = document.getElementById('list');
+let myUsername = null;
+
+async function loadMe() {
+  const resp = await fetch('/api/me');
+  if (resp.ok) myUsername = (await resp.json()).username;
+}
+
+async function loadUsers() {
+  const resp = await fetch('/api/users');
+  const data = await resp.json();
+  list.innerHTML = '';
+  data.items.forEach(u => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const left = document.createElement('div');
+    left.innerHTML = `<div class="uname">${u.username}${u.username === myUsername ? ' (você)' : ''}</div><div class="udate">desde ${u.created_at}</div>`;
+    row.appendChild(left);
+    if (data.items.length > 1 && u.username !== myUsername) {
+      const rm = document.createElement('button');
+      rm.className = 'rmBtn';
+      rm.textContent = 'Remover';
+      rm.addEventListener('click', async () => {
+        if (!confirm(`Remover o acesso de "${u.username}"?`)) return;
+        await fetch('/api/users/' + u.id, { method: 'DELETE' });
+        loadUsers();
+      });
+      row.appendChild(rm);
+    }
+    list.appendChild(row);
+  });
+}
+
+document.getElementById('addBtn').addEventListener('click', async () => {
+  const addError = document.getElementById('addError');
+  const addOk = document.getElementById('addOk');
+  addError.textContent = ''; addOk.textContent = '';
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const resp = await fetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) { addError.textContent = data.error || 'Erro ao adicionar'; return; }
+  addOk.textContent = `Usuário "${username}" criado.`;
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  loadUsers();
+});
+
+loadMe().then(loadUsers);
+</script>
+</body>
+</html>

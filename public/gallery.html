@@ -124,6 +124,8 @@
 <div class="wrap">
   <div class="toolbar">
     <a class="btn" href="/">➕ Gerar novas artes</a>
+    <a class="btn secondary" href="/users.html">👤 Usuários</a>
+    <button class="btn secondary" id="logoutBtn">🚪 Sair</button>
     <select id="filter">
       <option value="">Todos os templates</option>
       <option value="novidade">Chegou Novidade</option>
@@ -154,6 +156,10 @@ let loading = false;
 
 filterSel.addEventListener('change', () => { grid.innerHTML = ''; cursor = null; load(true); });
 moreBtn.addEventListener('click', () => load(false));
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  location.href = '/login.html';
+});
 
 async function load(first) {
   if (loading) return;
@@ -166,6 +172,7 @@ async function load(first) {
 
   try {
     const resp = await fetch('/api/posts?' + params.toString());
+    if (resp.status === 401) { location.href = '/login.html'; return; }
     const data = await resp.json();
     data.items.forEach(renderItem);
     cursor = data.next_cursor;
