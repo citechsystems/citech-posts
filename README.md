@@ -88,3 +88,4 @@ O botão "📤 Compartilhar" usa a Web Share API do navegador, que só libera co
 - Busca por nome de produto na galeria.
 - Botão "Atualizar este template" (sobrescrever em vez de sempre criar novo).
 - Camadas de múltiplas fotos por template, reordenar/duplicar camadas.
+
