@@ -9,9 +9,18 @@ jobs:
   deploy:
     runs-on: [self-hosted, citech-posts]
     steps:
+      - name: Diagnóstico do ambiente
+        run: |
+          echo "whoami: $(whoami)"
+          echo "HOME: $HOME"
+          echo "PWD: $(pwd)"
+          echo "PATH: $PATH"
+          id
+          which git docker || true
       - name: Atualizar e subir o container
         run: |
-          cd ~/projects/citech-posts
+          set -x
+          cd /home/citech/projects/citech-posts
           git fetch origin main
           git reset --hard origin/main
           docker compose up -d --build
