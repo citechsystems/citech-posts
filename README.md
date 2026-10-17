@@ -23,7 +23,7 @@ mkdir -p data uploads   # se ainda não existirem
 docker compose up -d --build
 ```
 
-Isso sobe o container na porta `8090` do host (configurável no `docker-compose.yml`), com o SQLite e os uploads persistidos fora do container.
+Isso sobe o container na porta `8091` do host (configurável no `docker-compose.yml`), com o SQLite e os uploads persistidos fora do container.
 
 ## Publicar num subdomínio (Cloudflare Tunnel)
 
@@ -35,7 +35,7 @@ Isso aqui eu não apliquei — depende do túnel/config que já está sendo gere
    ```yaml
    ingress:
      - hostname: posts.seudominio.com.br
-       service: http://localhost:8090   # ou http://citech-posts:3010 se estiver na mesma rede Docker do túnel
+       service: http://localhost:8091   # ou http://citech-posts:3010 se estiver na mesma rede Docker do túnel
      # ... resto das regras existentes
      - service: http_status:404
    ```
