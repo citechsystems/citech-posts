@@ -11,17 +11,11 @@ jobs:
     steps:
       - name: Atualizar e subir o container
         run: |
-          {
-            echo "whoami: $(whoami)"
-            echo "HOME: $HOME"
-            echo "PWD: $(pwd)"
-            echo "PATH: $PATH"
-            id
-            set -x
-            cd /home/citech/projects/citech-posts
-            git fetch origin main
-            git reset --hard origin/main
-            docker compose up -d --build
-            docker compose ps
-          } > /tmp/ci-deploy.log 2>&1 || true
-          cat /tmp/ci-deploy.log
+          cd /home/citech/projects/citech-posts
+          git fetch origin main
+          git reset --hard origin/main
+          # O processo do runner não carrega o grupo "docker" na sessão (fica
+          # desatualizado desde que o serviço systemd --user foi criado, mesmo
+          # o usuário já sendo membro do grupo) — `sg docker` relê o grupo na
+          # hora, sem depender da sessão herdada.
+          sg docker -c "docker compose up -d --build && docker compose ps"
