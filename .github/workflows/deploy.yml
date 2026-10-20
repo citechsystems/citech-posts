@@ -21,27 +21,29 @@ jobs:
           # hora, sem depender da sessão herdada.
           sg docker -c "docker compose up -d --build && docker compose ps"
 
+      # Notificação via curl direto na API do Telegram em vez de uma action
+      # baseada em container Docker — o runner self-hosted também sofre do
+      # mesmo problema de grupo "docker" desatualizado (ver comentário acima),
+      # mas dessa vez na infraestrutura interna da action, fora do nosso
+      # controle via `sg`. curl evita precisar de Docker nesse passo.
       - name: Telegram — sucesso
         if: success()
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          message: |
-            ✅ *citech-posts — Deploy concluído!*
-            📦 Commit: `${{ github.sha }}`
-            👤 Por: ${{ github.actor }}
-            🌿 Branch: ${{ github.ref_name }}
-            🔗 ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          MSG="✅ citech-posts — Deploy concluído!\n📦 Commit: ${GITHUB_SHA}\n👤 Por: ${GITHUB_ACTOR}\n🌿 Branch: ${GITHUB_REF_NAME}\n🔗 ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=$(printf '%b' "$MSG")"
 
       - name: Telegram — falha
         if: failure()
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          message: |
-            ❌ *citech-posts — Deploy FALHOU!*
-            📦 Commit: `${{ github.sha }}`
-            👤 Por: ${{ github.actor }}
-            🔗 ${{ github.server_url }}/${{ github.repository }}/actions
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          MSG="❌ citech-posts — Deploy FALHOU!\n📦 Commit: ${GITHUB_SHA}\n👤 Por: ${GITHUB_ACTOR}\n🔗 ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions"
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=$(printf '%b' "$MSG")"
