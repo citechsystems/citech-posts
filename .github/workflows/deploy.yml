@@ -7,6 +7,7 @@ on:
 
 jobs:
   deploy:
+    name: Build & Deploy citech-posts
     runs-on: [self-hosted, citech-posts]
     steps:
       - name: Atualizar e subir o container
@@ -19,3 +20,28 @@ jobs:
           # o usuário já sendo membro do grupo) — `sg docker` relê o grupo na
           # hora, sem depender da sessão herdada.
           sg docker -c "docker compose up -d --build && docker compose ps"
+
+      - name: Telegram — sucesso
+        if: success()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            ✅ *citech-posts — Deploy concluído!*
+            📦 Commit: `${{ github.sha }}`
+            👤 Por: ${{ github.actor }}
+            🌿 Branch: ${{ github.ref_name }}
+            🔗 ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+      - name: Telegram — falha
+        if: failure()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            ❌ *citech-posts — Deploy FALHOU!*
+            📦 Commit: `${{ github.sha }}`
+            👤 Por: ${{ github.actor }}
+            🔗 ${{ github.server_url }}/${{ github.repository }}/actions
