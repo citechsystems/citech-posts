@@ -139,6 +139,8 @@
           <button class="btn small" id="addShapeBtn">🔖 Forma</button>
           <button class="btn secondary small" id="bgBtn">🎨 Fundo</button>
           <button class="btn secondary small" id="deleteBtn" disabled>🗑️ Excluir</button>
+          <button class="btn secondary small" id="undoBtn" disabled title="Desfazer (Ctrl+Z)">↩️ Desfazer</button>
+          <button class="btn secondary small" id="redoBtn" disabled title="Refazer (Ctrl+Shift+Z)">↪️ Refazer</button>
         </div>
         <div id="stageOuter"><div id="stageInner"></div></div>
       </div>
@@ -215,6 +217,80 @@ let nodesById = {};
 let selectedId = null;
 let fileInputCallback = null;
 
+// ============== HISTORY (undo/redo) + AUTOSAVE DRAFT ==============
+const DRAFT_KEY = 'citech-editor-draft';
+let history = [];
+let historyIndex = -1;
+let historyDebounceTimer = null;
+let autosaveDebounceTimer = null;
+let dirty = false;
+
+function snapshotNow() {
+  if (!design) return;
+  const snap = JSON.stringify(design);
+  if (history[historyIndex] === snap) return;
+  history = history.slice(0, historyIndex + 1);
+  history.push(snap);
+  if (history.length > 60) history.shift();
+  historyIndex = history.length - 1;
+  updateUndoRedoButtons();
+}
+
+// Call after any edit. immediate=true for discrete actions (add/delete/drag
+// end/resize end/select change); immediate=false for continuous input
+// (typing, dragging a slider) so we don't flood the undo stack.
+function markChanged(immediate) {
+  dirty = true;
+  clearTimeout(historyDebounceTimer);
+  if (immediate) snapshotNow();
+  else historyDebounceTimer = setTimeout(snapshotNow, 500);
+  clearTimeout(autosaveDebounceTimer);
+  autosaveDebounceTimer = setTimeout(saveDraftToLocalStorage, 800);
+}
+
+function saveDraftToLocalStorage() {
+  if (!design) return;
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ design, ts: Date.now() })); } catch (e) {}
+}
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+}
+
+async function undo() {
+  if (historyIndex <= 0) return;
+  historyIndex--;
+  design = JSON.parse(history[historyIndex]);
+  await buildStageFromDesign();
+  updateUndoRedoButtons();
+  saveDraftToLocalStorage();
+}
+async function redo() {
+  if (historyIndex >= history.length - 1) return;
+  historyIndex++;
+  design = JSON.parse(history[historyIndex]);
+  await buildStageFromDesign();
+  updateUndoRedoButtons();
+  saveDraftToLocalStorage();
+}
+function updateUndoRedoButtons() {
+  const u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
+  if (u) u.disabled = historyIndex <= 0;
+  if (r) r.disabled = historyIndex >= history.length - 1;
+}
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('redoBtn').addEventListener('click', redo);
+window.addEventListener('keydown', (e) => {
+  if (document.getElementById('editorScreen').style.display !== 'block') return;
+  const mod = e.ctrlKey || e.metaKey;
+  if (!mod) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+});
+window.addEventListener('beforeunload', (e) => {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
 document.getElementById('fileInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   const cb = fileInputCallback;
@@ -252,10 +328,96 @@ async function loadTemplateGrid() {
   data.items.forEach(t => {
     const card = document.createElement('div');
     card.className = 'tpl-card';
-    card.innerHTML = `<div class="thumb">${t.thumbnail_url ? `<img src="${t.thumbnail_url}">` : '🖼️'}</div><div class="name">${t.name}</div>`;
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    if (t.thumbnail_url) {
+      thumb.innerHTML = `<img src="${t.thumbnail_url}">`;
+    } else {
+      thumb.textContent = '🖼️';
+      backfillThumbnail(t.id, thumb);
+    }
+    card.appendChild(thumb);
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = t.name;
+    card.appendChild(name);
+    const batchBtn = document.createElement('button');
+    batchBtn.className = 'btn secondary small';
+    batchBtn.textContent = '📦 Lote de fotos';
+    batchBtn.style.cssText = 'display:block; width:calc(100% - 12px); margin:0 6px 8px;';
+    batchBtn.addEventListener('click', (e) => { e.stopPropagation(); openBatchMode(t.id, t.name); });
+    card.appendChild(batchBtn);
     card.addEventListener('click', () => startFromTemplate(t.id));
     grid.appendChild(card);
   });
+}
+
+// Templates saved before thumbnails existed (or the 3 factory presets) have
+// no preview image — render one in the background the first time they're
+// seen and save it, so it's instant for everyone after.
+async function backfillThumbnail(id, thumbEl) {
+  try {
+    const full = await (await fetch('/api/templates/' + id)).json();
+    const blob = await renderTemplateThumbnail(full.layout);
+    const form = new FormData();
+    form.append('name', full.name);
+    form.append('layout_json', JSON.stringify(full.layout));
+    form.append('thumbnail', blob, 'thumb.jpg');
+    await fetch('/api/templates/' + id, { method: 'PUT', body: form });
+    thumbEl.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(blob);
+    thumbEl.appendChild(img);
+  } catch (err) {
+    // keeps the placeholder icon if this fails — not critical
+  }
+}
+
+async function renderTemplateThumbnail(layout) {
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'fixed';
+  tempContainer.style.left = '-9999px';
+  document.body.appendChild(tempContainer);
+  const tempStage = new Konva.Stage({ container: tempContainer, width: CANVAS_W, height: CANVAS_H });
+  const tempLayer = new Konva.Layer();
+  tempStage.add(tempLayer);
+
+  let bgNode;
+  if (layout.background.type === 'color') {
+    bgNode = new Konva.Rect({ x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, fill: layout.background.value });
+  } else {
+    const img = await loadImageEl(layout.background.src);
+    bgNode = new Konva.Image({ x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, image: img });
+  }
+  tempLayer.add(bgNode);
+
+  for (const l of layout.layers) {
+    let node = null;
+    if (l.type === 'text') node = createTextNode(l);
+    else if (l.type === 'shape') node = createShapeNode(l);
+    else if (l.type === 'image') {
+      if (l.src) {
+        node = await createImageNode(l);
+      } else {
+        node = new Konva.Rect({
+          x: l.x, y: l.y, width: l.width, height: l.height, rotation: l.rotation || 0,
+          fill: 'rgba(255,255,255,0.1)', cornerRadius: l.cornerRadius || 0,
+        });
+      }
+    }
+    if (node) tempLayer.add(node);
+  }
+  tempLayer.draw();
+
+  const fullCanvas = tempStage.toCanvas({ width: CANVAS_W, height: CANVAS_H, pixelRatio: 1 });
+  const thumbCanvas = document.createElement('canvas');
+  thumbCanvas.width = 270; thumbCanvas.height = 480;
+  thumbCanvas.getContext('2d').drawImage(fullCanvas, 0, 0, 270, 480);
+  const blob = await new Promise(res => thumbCanvas.toBlob(res, 'image/jpeg', 0.85));
+
+  tempStage.destroy();
+  document.body.removeChild(tempContainer);
+  return blob;
 }
 
 function startFromBlank() {
@@ -328,9 +490,13 @@ async function enterEditor(layout, photoDataUrls) {
   if (!stage) initStage();
   await buildStageFromDesign();
   fitStage();
+  history = []; historyIndex = -1; dirty = false;
+  snapshotNow();
+  saveDraftToLocalStorage();
 }
 
 function backToStart() {
+  if (dirty && !confirm('Você tem alterações nessa arte. O rascunho fica salvo automaticamente, mas quer mesmo trocar de template agora?')) return;
   document.getElementById('editorScreen').style.display = 'none';
   document.getElementById('startScreen').style.display = 'block';
   loadTemplateGrid();
@@ -430,13 +596,14 @@ function createTextNode(layer) {
   });
   applyTextPaint(node, layer);
   node.setAttrs({ layerId: layer.id, layerType: 'text' });
-  node.on('dragend', () => { layer.x = node.x(); layer.y = node.y(); });
+  node.on('dragend', () => { layer.x = node.x(); layer.y = node.y(); markChanged(true); });
   node.on('transformend', () => {
     const scaleY = node.scaleY();
     layer.size = Math.max(6, Math.round(layer.size * scaleY));
     node.fontSize(layer.size);
     node.scale({ x: 1, y: 1 });
     layer.x = node.x(); layer.y = node.y(); layer.rotation = node.rotation();
+    markChanged(true);
   });
   return node;
 }
@@ -463,7 +630,7 @@ function createShapeNode(layer) {
   group.add(rect); group.add(text);
   group.setAttrs({ layerId: layer.id, layerType: 'shape' });
   group._rect = rect; group._text = text;
-  group.on('dragend', () => { layer.x = group.x(); layer.y = group.y(); });
+  group.on('dragend', () => { layer.x = group.x(); layer.y = group.y(); markChanged(true); });
   group.on('transformend', () => {
     const sx = group.scaleX(), sy = group.scaleY();
     const newW = Math.max(20, layer.width * sx), newH = Math.max(20, layer.height * sy);
@@ -471,8 +638,21 @@ function createShapeNode(layer) {
     text.width(newW); text.height(newH);
     group.scale({ x: 1, y: 1 });
     layer.width = newW; layer.height = newH; layer.x = group.x(); layer.y = group.y(); layer.rotation = group.rotation();
+    markChanged(true);
   });
   return group;
+}
+
+// Computes a crop rect (in source-image pixels) so the image fills the box
+// without distorting it — same idea as CSS object-fit:cover.
+function fitCoverCrop(imgEl, boxW, boxH) {
+  const iw = imgEl.naturalWidth || imgEl.width, ih = imgEl.naturalHeight || imgEl.height;
+  if (!iw || !ih || !boxW || !boxH) return null;
+  const boxRatio = boxW / boxH, imgRatio = iw / ih;
+  let cw, ch, cx, cy;
+  if (imgRatio > boxRatio) { ch = ih; cw = ih * boxRatio; cx = (iw - cw) / 2; cy = 0; }
+  else { cw = iw; ch = iw / boxRatio; cx = 0; cy = (ih - ch) / 2; }
+  return { x: cx, y: cy, width: cw, height: ch };
 }
 
 async function createImageNode(layer) {
@@ -483,25 +663,30 @@ async function createImageNode(layer) {
       cornerRadius: layer.cornerRadius || 0, draggable: true,
     });
     rect.setAttrs({ layerId: layer.id, layerType: 'image-empty' });
-    rect.on('dragend', () => { layer.x = rect.x(); layer.y = rect.y(); });
+    rect.on('dragend', () => { layer.x = rect.x(); layer.y = rect.y(); markChanged(true); });
     rect.on('transformend', () => {
       const newW = Math.max(10, rect.width() * rect.scaleX()), newH = Math.max(10, rect.height() * rect.scaleY());
       rect.width(newW); rect.height(newH); rect.scale({ x: 1, y: 1 });
       layer.width = newW; layer.height = newH; layer.x = rect.x(); layer.y = rect.y(); layer.rotation = rect.rotation();
+      markChanged(true);
     });
     return rect;
   }
   const imgEl = await loadImageEl(layer.src);
   const node = new Konva.Image({
     x: layer.x, y: layer.y, width: layer.width, height: layer.height, rotation: layer.rotation || 0,
-    image: imgEl, cornerRadius: layer.cornerRadius || 0, draggable: true,
+    image: imgEl, crop: fitCoverCrop(imgEl, layer.width, layer.height) || undefined,
+    cornerRadius: layer.cornerRadius || 0, draggable: true,
   });
   node.setAttrs({ layerId: layer.id, layerType: 'image' });
-  node.on('dragend', () => { layer.x = node.x(); layer.y = node.y(); });
+  node.on('dragend', () => { layer.x = node.x(); layer.y = node.y(); markChanged(true); });
   node.on('transformend', () => {
     const newW = Math.max(10, node.width() * node.scaleX()), newH = Math.max(10, node.height() * node.scaleY());
     node.width(newW); node.height(newH); node.scale({ x: 1, y: 1 });
+    const crop = fitCoverCrop(imgEl, newW, newH);
+    if (crop) node.crop(crop);
     layer.width = newW; layer.height = newH; layer.x = node.x(); layer.y = node.y(); layer.rotation = node.rotation();
+    markChanged(true);
   });
   return node;
 }
@@ -518,6 +703,7 @@ async function replaceImageSrc(id, src) {
   mainLayer.add(node);
   nodesById[id] = node;
   if (wasSelected) selectNode(id); else mainLayer.draw();
+  markChanged(true);
 }
 
 // ============== SELECTION ==============
@@ -548,6 +734,7 @@ document.getElementById('deleteBtn').addEventListener('click', () => {
   design.layers = design.layers.filter(l => l.id !== selectedId);
   deselectAll();
   mainLayer.draw();
+  markChanged(true);
 });
 
 // ============== PROPERTIES PANEL ==============
@@ -576,7 +763,7 @@ function showTextProps(panel, layer, node) {
   const r1 = row('Texto');
   const input = document.createElement('input');
   input.type = 'text'; input.value = layer.text; input.maxLength = 60;
-  input.addEventListener('input', () => { layer.text = input.value; node.text(input.value); mainLayer.draw(); });
+  input.addEventListener('input', () => { layer.text = input.value; node.text(input.value); mainLayer.draw(); markChanged(false); });
   r1.appendChild(input); panel.appendChild(r1);
 
   const r2 = row('Fonte');
@@ -591,6 +778,7 @@ function showTextProps(panel, layer, node) {
     node.fontStyle(`${layer.weight}${layer.italic ? ' italic' : ''}`);
     weightSel.innerHTML = f.weights.map(w => `<option value="${w}" ${w === layer.weight ? 'selected' : ''}>${WEIGHT_LABELS[w] || w}</option>`).join('');
     mainLayer.draw();
+    markChanged(true);
   });
   r2.appendChild(fontSel); panel.appendChild(r2);
 
@@ -602,19 +790,20 @@ function showTextProps(panel, layer, node) {
     layer.weight = Number(weightSel.value);
     node.fontStyle(`${layer.weight}${layer.italic ? ' italic' : ''}`);
     mainLayer.draw();
+    markChanged(true);
   });
   r3.appendChild(weightSel); panel.appendChild(r3);
 
   const r4 = row('Tamanho');
   const sizeSlider = document.createElement('input');
   sizeSlider.type = 'range'; sizeSlider.min = '20'; sizeSlider.max = '260'; sizeSlider.value = String(layer.size);
-  sizeSlider.addEventListener('input', () => { layer.size = Number(sizeSlider.value); node.fontSize(layer.size); mainLayer.draw(); });
+  sizeSlider.addEventListener('input', () => { layer.size = Number(sizeSlider.value); node.fontSize(layer.size); mainLayer.draw(); markChanged(false); });
   r4.appendChild(sizeSlider); panel.appendChild(r4);
 
   const r5 = row('Estilo');
   const modeSel = document.createElement('select');
   modeSel.innerHTML = `<option value="solid" ${layer.mode === 'solid' ? 'selected' : ''}>Sólido</option><option value="outline" ${layer.mode === 'outline' ? 'selected' : ''}>Contorno</option>`;
-  modeSel.addEventListener('change', () => { layer.mode = modeSel.value; applyTextPaint(node, layer); mainLayer.draw(); });
+  modeSel.addEventListener('change', () => { layer.mode = modeSel.value; applyTextPaint(node, layer); mainLayer.draw(); markChanged(true); });
   r5.appendChild(modeSel); panel.appendChild(r5);
 
   const r6 = row('Cor');
@@ -623,6 +812,7 @@ function showTextProps(panel, layer, node) {
   colorInput.addEventListener('input', () => {
     if (layer.mode === 'outline') layer.strokeColor = colorInput.value; else layer.color = colorInput.value;
     applyTextPaint(node, layer); mainLayer.draw();
+    markChanged(false);
   });
   r6.appendChild(colorInput); panel.appendChild(r6);
 
@@ -633,6 +823,7 @@ function showTextProps(panel, layer, node) {
     layer.italic = italicCheck.checked;
     node.fontStyle(`${layer.weight}${layer.italic ? ' italic' : ''}`);
     mainLayer.draw();
+    markChanged(true);
   });
   r7.appendChild(italicCheck); panel.appendChild(r7);
 }
@@ -649,7 +840,7 @@ function showImageProps(panel, layer, node) {
   const r1 = row('Cantos');
   const radiusSlider = document.createElement('input');
   radiusSlider.type = 'range'; radiusSlider.min = '0'; radiusSlider.max = '120'; radiusSlider.value = String(layer.cornerRadius || 0);
-  radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node.cornerRadius(layer.cornerRadius); mainLayer.draw(); });
+  radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node.cornerRadius(layer.cornerRadius); mainLayer.draw(); markChanged(false); });
   r1.appendChild(radiusSlider); panel.appendChild(r1);
 
   if (layer.role !== 'fixed_asset') {
@@ -666,25 +857,25 @@ function showShapeProps(panel, layer, node) {
   const r1 = row('Cor');
   const fillInput = document.createElement('input');
   fillInput.type = 'color'; fillInput.value = layer.fill;
-  fillInput.addEventListener('input', () => { layer.fill = fillInput.value; node._rect.fill(layer.fill); mainLayer.draw(); });
+  fillInput.addEventListener('input', () => { layer.fill = fillInput.value; node._rect.fill(layer.fill); mainLayer.draw(); markChanged(false); });
   r1.appendChild(fillInput); panel.appendChild(r1);
 
   const r2 = row('Cantos');
   const radiusSlider = document.createElement('input');
   radiusSlider.type = 'range'; radiusSlider.min = '0'; radiusSlider.max = '100'; radiusSlider.value = String(layer.cornerRadius || 0);
-  radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node._rect.cornerRadius(layer.cornerRadius); mainLayer.draw(); });
+  radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node._rect.cornerRadius(layer.cornerRadius); mainLayer.draw(); markChanged(false); });
   r2.appendChild(radiusSlider); panel.appendChild(r2);
 
   const r3 = row('Texto');
   const textInput = document.createElement('input');
   textInput.type = 'text'; textInput.value = layer.text || ''; textInput.maxLength = 24;
-  textInput.addEventListener('input', () => { layer.text = textInput.value; node._text.text(layer.text); mainLayer.draw(); });
+  textInput.addEventListener('input', () => { layer.text = textInput.value; node._text.text(layer.text); mainLayer.draw(); markChanged(false); });
   r3.appendChild(textInput); panel.appendChild(r3);
 
   const r4 = row('Cor texto');
   const textColorInput = document.createElement('input');
   textColorInput.type = 'color'; textColorInput.value = layer.textColor || '#ffffff';
-  textColorInput.addEventListener('input', () => { layer.textColor = textColorInput.value; node._text.fill(layer.textColor); mainLayer.draw(); });
+  textColorInput.addEventListener('input', () => { layer.textColor = textColorInput.value; node._text.fill(layer.textColor); mainLayer.draw(); markChanged(false); });
   r4.appendChild(textColorInput); panel.appendChild(r4);
 }
 
@@ -703,6 +894,7 @@ document.getElementById('addTextBtn').addEventListener('click', () => {
   transformer.moveToTop();
   mainLayer.draw();
   selectNode(layer.id);
+  markChanged(true);
 });
 
 document.getElementById('addPhotoBtn').addEventListener('click', () => {
@@ -714,6 +906,7 @@ document.getElementById('addPhotoBtn').addEventListener('click', () => {
     transformer.moveToTop();
     mainLayer.draw();
     selectNode(layer.id);
+    markChanged(true);
   });
 });
 
@@ -725,6 +918,7 @@ document.getElementById('addLogoBtn').addEventListener('click', async () => {
   transformer.moveToTop();
   mainLayer.draw();
   selectNode(layer.id);
+  markChanged(true);
 });
 
 document.getElementById('addShapeBtn').addEventListener('click', () => {
@@ -735,18 +929,20 @@ document.getElementById('addShapeBtn').addEventListener('click', () => {
   transformer.moveToTop();
   mainLayer.draw();
   selectNode(layer.id);
+  markChanged(true);
 });
 
 document.getElementById('bgType').addEventListener('change', (e) => {
   document.getElementById('bgColorRow').style.display = e.target.value === 'color' ? 'flex' : 'none';
-  if (e.target.value === 'color') setBackground({ type: 'color', value: document.getElementById('bgColorInput').value });
+  if (e.target.value === 'color') { setBackground({ type: 'color', value: document.getElementById('bgColorInput').value }); markChanged(true); }
 });
-document.getElementById('bgColorInput').addEventListener('input', (e) => setBackground({ type: 'color', value: e.target.value }));
+document.getElementById('bgColorInput').addEventListener('input', (e) => { setBackground({ type: 'color', value: e.target.value }); markChanged(false); });
 document.getElementById('bgImageBtn').addEventListener('click', () => {
   pickImage(url => {
     document.getElementById('bgType').value = 'image';
     document.getElementById('bgColorRow').style.display = 'none';
     setBackground({ type: 'image', src: url });
+    markChanged(true);
   });
 });
 document.getElementById('bgBtn').addEventListener('click', () => {
@@ -829,8 +1025,189 @@ document.getElementById('saveTemplateBtn').addEventListener('click', async () =>
   if (resp.ok) { design.__sourceName = name; nameInput.value = ''; }
 });
 
+// ============== BATCH MODE (apply many photos to one template) ==============
+function readFileAsDataURL(file) {
+  return new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+}
+
+async function openBatchMode(templateId, templateName) {
+  const resp = await fetch('/api/templates/' + templateId);
+  const data = await resp.json();
+  const layout = data.layout;
+  const hasPhotoSlot = layout.layers.some(l => l.type === 'image' && l.role === 'product_photo');
+  if (!hasPhotoSlot) {
+    alert('Esse template não tem espaço de foto — use o modo normal pra editar.');
+    return;
+  }
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+  input.addEventListener('change', async () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+    await runBatch(layout, templateName, files);
+  });
+  input.click();
+}
+
+// Same rendering approach as the thumbnail generator, but full resolution
+// and with every "product_photo" slot filled by the given photo instead of
+// a placeholder box.
+async function renderFinalFromLayout(layout, photoDataUrl) {
+  const tempContainer = document.createElement('div');
+  tempContainer.style.position = 'fixed';
+  tempContainer.style.left = '-9999px';
+  document.body.appendChild(tempContainer);
+  const tempStage = new Konva.Stage({ container: tempContainer, width: CANVAS_W, height: CANVAS_H });
+  const tempLayer = new Konva.Layer();
+  tempStage.add(tempLayer);
+
+  let bgNode;
+  if (layout.background.type === 'color') {
+    bgNode = new Konva.Rect({ x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, fill: layout.background.value });
+  } else {
+    const img = await loadImageEl(layout.background.src);
+    bgNode = new Konva.Image({ x: 0, y: 0, width: CANVAS_W, height: CANVAS_H, image: img });
+  }
+  tempLayer.add(bgNode);
+
+  for (const l of layout.layers) {
+    let node = null;
+    if (l.type === 'text') node = createTextNode(l);
+    else if (l.type === 'shape') node = createShapeNode(l);
+    else if (l.type === 'image') {
+      const srcToUse = l.role === 'product_photo' ? photoDataUrl : l.src;
+      if (srcToUse) node = await createImageNode({ ...l, src: srcToUse });
+    }
+    if (node) tempLayer.add(node);
+  }
+  tempLayer.draw();
+
+  const canvas = tempStage.toCanvas({ width: CANVAS_W, height: CANVAS_H, pixelRatio: 1 });
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+  tempStage.destroy();
+  document.body.removeChild(tempContainer);
+  return blob;
+}
+
+async function runBatch(layout, templateName, files) {
+  window.__batchBlobs = [];
+  showBatchScreen(templateName, files.length);
+  for (let i = 0; i < files.length; i++) {
+    updateBatchProgress(i, files.length);
+    const dataUrl = await readFileAsDataURL(files[i]);
+    const blob = await renderFinalFromLayout(layout, dataUrl);
+    window.__batchBlobs.push(blob);
+    appendBatchResult(i, blob);
+  }
+  finishBatchProgress(templateName);
+}
+
+function showBatchScreen(templateName, total) {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay-modal';
+  overlay.id = 'batchOverlay';
+  const box = document.createElement('div');
+  box.className = 'modal-box';
+  box.style.maxWidth = '540px';
+  box.innerHTML = `
+    <h3>📦 Lote: ${templateName}</h3>
+    <div id="batchProgress" style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Processando 0 de ${total}...</div>
+    <div id="batchGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;max-height:50vh;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+      <button class="btn small" id="batchDownloadAllBtn" style="flex:1;" disabled>⬇️ Baixar todas</button>
+      <button class="btn secondary small" id="batchSaveAllBtn" style="flex:1;" disabled>💾 Salvar todas na galeria</button>
+      <button class="btn secondary small" id="batchCloseBtn" style="flex:1;">Fechar</button>
+    </div>
+    <div class="share-note" id="batchNote"></div>
+  `;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById('batchCloseBtn').addEventListener('click', () => overlay.remove());
+}
+function updateBatchProgress(done, total) {
+  const el = document.getElementById('batchProgress');
+  if (el) el.textContent = `Processando ${done} de ${total}...`;
+}
+function appendBatchResult(index, blob) {
+  const grid = document.getElementById('batchGrid');
+  if (!grid) return;
+  const url = URL.createObjectURL(blob);
+  const item = document.createElement('div');
+  const img = document.createElement('img');
+  img.src = url;
+  img.style.cssText = 'width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block;';
+  const dl = document.createElement('a');
+  dl.href = url; dl.download = `citech-lote-${index + 1}.jpg`;
+  dl.className = 'btn secondary small';
+  dl.style.cssText = 'display:block;text-align:center;margin-top:4px;font-size:10px;padding:5px;';
+  dl.textContent = '⬇️';
+  item.appendChild(img); item.appendChild(dl);
+  grid.appendChild(item);
+}
+function finishBatchProgress(templateName) {
+  const el = document.getElementById('batchProgress');
+  const blobs = window.__batchBlobs || [];
+  if (el) el.textContent = `${blobs.length} arte(s) pronta(s).`;
+  const dlBtn = document.getElementById('batchDownloadAllBtn');
+  const saveBtn = document.getElementById('batchSaveAllBtn');
+  if (dlBtn) { dlBtn.disabled = false; dlBtn.addEventListener('click', downloadAllBatch); }
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.addEventListener('click', () => saveAllBatchToGallery(templateName)); }
+}
+async function downloadAllBatch() {
+  const blobs = window.__batchBlobs || [];
+  for (let i = 0; i < blobs.length; i++) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blobs[i]);
+    a.download = `citech-lote-${i + 1}.jpg`;
+    document.body.appendChild(a); a.click(); a.remove();
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+async function saveAllBatchToGallery(templateName) {
+  const blobs = window.__batchBlobs || [];
+  const note = document.getElementById('batchNote');
+  let ok = 0;
+  for (const blob of blobs) {
+    const form = new FormData();
+    form.append('image', blob, 'arte.jpg');
+    form.append('template', templateName);
+    const resp = await fetch('/api/posts', { method: 'POST', body: form });
+    if (resp.ok) ok++;
+  }
+  if (note) note.textContent = `✅ ${ok} de ${blobs.length} salvas na galeria.`;
+}
+
 // ============== INIT ==============
-loadTemplateGrid();
+async function resumeDraft(savedDesign) {
+  await fontsReady;
+  design = savedDesign;
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('editorScreen').style.display = 'block';
+  if (!stage) initStage();
+  await buildStageFromDesign();
+  fitStage();
+  history = []; historyIndex = -1; dirty = false;
+  snapshotNow();
+}
+
+async function checkForDraftThenInit() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (raw) {
+    try {
+      const draft = JSON.parse(raw);
+      if (draft.design && Array.isArray(draft.design.layers)) {
+        const when = new Date(draft.ts).toLocaleString('pt-BR');
+        if (confirm(`Encontramos um rascunho não salvo de ${when}. Continuar editando esse rascunho?`)) {
+          await resumeDraft(draft.design);
+          return;
+        }
+        clearDraft();
+      }
+    } catch (e) { clearDraft(); }
+  }
+  loadTemplateGrid();
+}
+checkForDraftThenInit();
 </script>
 </body>
 </html>

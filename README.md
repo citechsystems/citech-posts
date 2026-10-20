@@ -18,7 +18,13 @@ Internamente usa [Konva.js](https://konvajs.org/) (canvas, via CDN) pra arrastar
 
 Ao salvar como template, camadas de foto que o usuário subiu viram "placeholder" (a imagem em si não é salva, só a posição/tamanho) — ao carregar esse template de novo, o app pede pra subir uma foto nova pra preencher o espaço. A logo e outros elementos fixos continuam iguais.
 
-Os 3 templates originais (Chegou Novidade / Tem Promoção / Nossos Produtos) são recriados automaticamente no primeiro boot, caso a tabela `templates` esteja vazia.
+Os 3 templates originais (Chegou Novidade / Tem Promoção / Nossos Produtos) são recriados automaticamente no primeiro boot, caso a tabela `templates` esteja vazia — e ganham uma miniatura de verdade (gerada no navegador) na primeira vez que alguém abre a tela inicial.
+
+**Desfazer/refazer:** botões ↩️/↪️ na barra de ferramentas, ou Ctrl+Z / Ctrl+Shift+Z.
+
+**Rascunho automático:** o estado atual é salvo no navegador (`localStorage`) a cada edição. Se a página recarregar ou fechar sem querer, da próxima vez que abrir ela pergunta se quer continuar de onde parou. Também avisa antes de sair/recarregar se houver alterações não salvas.
+
+**Lote de fotos:** cada template na tela inicial tem um botão "📦 Lote de fotos" — escolhe várias fotos de uma vez e o app gera uma arte pronta por foto automaticamente (sem precisar editar uma por uma), com opção de baixar ou salvar todas na galeria de uma vez.
 
 ## Rodar local (sem Docker)
 
