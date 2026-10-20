@@ -140,7 +140,7 @@
           <button class="btn secondary small" id="bgBtn">🎨 Fundo</button>
           <button class="btn secondary small" id="deleteBtn" disabled>🗑️ Excluir</button>
         </div>
-        <div id="stageOuter"></div>
+        <div id="stageOuter"><div id="stageInner"></div></div>
       </div>
 
       <div class="side-panel">
@@ -339,7 +339,12 @@ document.getElementById('backToStartBtn').addEventListener('click', backToStart)
 
 // ============== STAGE / KONVA ==============
 function initStage() {
-  stage = new Konva.Stage({ container: 'stageOuter', width: CANVAS_W, height: CANVAS_H });
+  stage = new Konva.Stage({ container: 'stageInner', width: CANVAS_W, height: CANVAS_H });
+  // Konva's container div has no intrinsic size of its own — without this it
+  // falls back to the parent's (already shrunk) width, so the scale transform
+  // below would shrink it a second time. Pin it to the real 1080x1920 first.
+  stage.container().style.width = CANVAS_W + 'px';
+  stage.container().style.height = CANVAS_H + 'px';
   stage.on('click tap', e => {
     if (transformer && e.target.getParent() === transformer) return;
     let n = e.target;
