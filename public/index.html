@@ -854,14 +854,44 @@ function showImageProps(panel, layer, node) {
   r1.appendChild(radiusSlider); panel.appendChild(r1);
 
   if (layer.role === 'fixed_asset') {
-    const r2 = row('Versão');
-    const logoSel = document.createElement('select');
-    logoSel.innerHTML = LOGO_VARIANTS.map(v => `<option value="${v.key}" ${layer.src === v.src ? 'selected' : ''}>${v.label}</option>`).join('');
-    logoSel.addEventListener('change', () => {
-      const variant = LOGO_VARIANTS.find(v => v.key === logoSel.value);
-      if (variant) replaceImageSrc(layer.id, variant.src);
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:11.5px; color:var(--muted); margin:2px 0 7px;';
+    label.textContent = 'Versão da logo';
+    panel.appendChild(label);
+
+    const thumbRow = document.createElement('div');
+    thumbRow.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;';
+
+    const isCustom = !LOGO_VARIANTS.some(v => v.src === layer.src);
+
+    LOGO_VARIANTS.forEach(v => {
+      const active = layer.src === v.src;
+      const thumb = document.createElement('button');
+      thumb.type = 'button';
+      thumb.title = v.label;
+      thumb.style.cssText = `width:62px; height:62px; padding:6px; border-radius:10px; cursor:pointer;
+        background:#e9edf5; display:flex; align-items:center; justify-content:center;
+        border:2px solid ${active ? 'var(--blue)' : 'var(--border)'};`;
+      const img = document.createElement('img');
+      img.src = v.src;
+      img.style.cssText = 'max-width:100%; max-height:100%; object-fit:contain;';
+      thumb.appendChild(img);
+      thumb.addEventListener('click', () => replaceImageSrc(layer.id, v.src));
+      thumbRow.appendChild(thumb);
     });
-    r2.appendChild(logoSel); panel.appendChild(r2);
+
+    const addThumb = document.createElement('button');
+    addThumb.type = 'button';
+    addThumb.title = 'Usar outra imagem';
+    addThumb.style.cssText = `width:62px; height:62px; border-radius:10px; cursor:pointer;
+      background:var(--panel2); display:flex; align-items:center; justify-content:center;
+      font-size:24px; color:var(--muted); line-height:1;
+      border:2px ${isCustom ? 'solid var(--blue)' : 'dashed var(--border)'};`;
+    addThumb.textContent = '+';
+    addThumb.addEventListener('click', () => pickImage(url => replaceImageSrc(layer.id, url)));
+    thumbRow.appendChild(addThumb);
+
+    panel.appendChild(thumbRow);
   } else {
     const btn = document.createElement('button');
     btn.className = 'btn secondary small';
