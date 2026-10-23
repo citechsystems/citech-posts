@@ -11,9 +11,9 @@ Editor livre (estilo Canva) pra montar artes de Instagram a partir de pedaços �
 ## Como funciona o editor
 
 Internamente usa [Konva.js](https://konvajs.org/) (canvas, via CDN) pra arrastar/redimensionar/rotacionar os elementos. Cada arte é um fundo (imagem ou cor sólida) + uma lista de camadas:
-- **Texto** — conteúdo, fonte (9 opções via Google Fonts), peso, tamanho, cor, sólido ou contorno, itálico.
+- **Texto** — conteúdo, fonte (10 opções via Google Fonts, incluindo **Orbitron** — a fonte real da marca, encontrada em `FONT LOGO/Orbitron-*.ttf` nos arquivos de identidade visual), peso, tamanho, cor, sólido ou contorno, itálico.
 - **Foto** — a foto do produto (ou qualquer imagem), com raio de borda ajustável.
-- **Logo** — a logo da CI.TECH como camada fixa.
+- **Logo** — a logo da CI.TECH como camada fixa, com 3 versões pra escolher (branca pra fundo escuro, preta pra fundo claro, só o ícone).
 - **Forma/emblema** — retângulo colorido com cantos arredondados e texto centralizado (ex: "OFERTA", "-20%").
 
 Ao salvar como template, camadas de foto que o usuário subiu viram "placeholder" (a imagem em si não é salva, só a posição/tamanho) — ao carregar esse template de novo, o app pede pra subir uma foto nova pra preencher o espaço. A logo e outros elementos fixos continuam iguais.

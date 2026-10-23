@@ -72,7 +72,7 @@ if (templateCount === 0) {
   const nextId = () => `l${++uid}`;
   const textLayer = (text, y, size, mode) => ({
     id: nextId(), type: 'text', x: 132, y, width: 820, height: size * 1.3, rotation: 0,
-    text, fontKey: 'anton', weight: 400, size, align: 'left',
+    text, fontKey: 'orbitron', weight: 800, size, align: 'left',
     mode, color: '#ffffff', strokeColor: 'rgb(36,163,228)',
   });
   const photoLayer = () => ({

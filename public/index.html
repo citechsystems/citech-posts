@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#070a1f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Oswald:wght@400;600;700&family=Poppins:wght@700;800;900&family=Rajdhani:wght@600;700&family=Russo+One&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=Oswald:wght@400;600;700&family=Poppins:wght@700;800;900&family=Rajdhani:wght@600;700&family=Russo+One&family=Teko:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/konva@9.3.14/konva.min.js"></script>
 <style>
   :root{
@@ -194,6 +194,10 @@
 const CANVAS_W = 1080, CANVAS_H = 1920;
 
 const FONTS = [
+  // Orbitron é a fonte real da marca CI.TECH (encontrada em
+  // FONT LOGO/Orbitron-*.ttf nos arquivos de identidade visual) — vem
+  // primeiro na lista por ser a mais "correta" pra usar.
+  { key: 'orbitron', family: 'Orbitron', weights: [400, 500, 600, 700, 800, 900] },
   { key: 'anton', family: 'Anton', weights: [400] },
   { key: 'bebas', family: 'Bebas Neue', weights: [400] },
   { key: 'archivo', family: 'Archivo Black', weights: [900] },
@@ -204,8 +208,14 @@ const FONTS = [
   { key: 'russo', family: 'Russo One', weights: [400] },
   { key: 'teko', family: 'Teko', weights: [600, 700] },
 ];
-const WEIGHT_LABELS = { 400: 'Normal', 600: 'Semi-bold', 700: 'Bold', 800: 'Extra-bold', 900: 'Black' };
+const WEIGHT_LABELS = { 400: 'Normal', 500: 'Medium', 600: 'Semi-bold', 700: 'Bold', 800: 'Extra-bold', 900: 'Black' };
 const fontFamily = key => (FONTS.find(f => f.key === key) || FONTS[0]).family;
+
+const LOGO_VARIANTS = [
+  { key: 'branca', label: 'Branca (fundo escuro)', src: '/logo-citech.png' },
+  { key: 'preta', label: 'Preta (fundo claro)', src: '/logo-citech-preto.png' },
+  { key: 'icone', label: 'Só o ícone', src: '/logo-citech-icone.png' },
+];
 
 const fontsReady = Promise.all(
   FONTS.flatMap(f => f.weights.map(w => document.fonts.load(`${w} 80px "${f.family}"`)))
@@ -843,7 +853,16 @@ function showImageProps(panel, layer, node) {
   radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node.cornerRadius(layer.cornerRadius); mainLayer.draw(); markChanged(false); });
   r1.appendChild(radiusSlider); panel.appendChild(r1);
 
-  if (layer.role !== 'fixed_asset') {
+  if (layer.role === 'fixed_asset') {
+    const r2 = row('Versão');
+    const logoSel = document.createElement('select');
+    logoSel.innerHTML = LOGO_VARIANTS.map(v => `<option value="${v.key}" ${layer.src === v.src ? 'selected' : ''}>${v.label}</option>`).join('');
+    logoSel.addEventListener('change', () => {
+      const variant = LOGO_VARIANTS.find(v => v.key === logoSel.value);
+      if (variant) replaceImageSrc(layer.id, variant.src);
+    });
+    r2.appendChild(logoSel); panel.appendChild(r2);
+  } else {
     const btn = document.createElement('button');
     btn.className = 'btn secondary small';
     btn.style.width = '100%';
@@ -885,7 +904,7 @@ function newLayerId() { return 'l' + Date.now() + Math.floor(Math.random() * 100
 document.getElementById('addTextBtn').addEventListener('click', () => {
   const layer = {
     id: newLayerId(), type: 'text', x: 200, y: 700, rotation: 0,
-    text: 'Novo texto', fontKey: 'anton', weight: 400, size: 70, mode: 'solid', color: '#ffffff',
+    text: 'Novo texto', fontKey: 'orbitron', weight: 700, size: 70, mode: 'solid', color: '#ffffff',
     strokeColor: 'rgb(36,163,228)', italic: false,
   };
   design.layers.push(layer);
