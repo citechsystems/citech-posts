@@ -665,6 +665,30 @@ function fitCoverCrop(imgEl, boxW, boxH) {
   return { x: cx, y: cy, width: cw, height: ch };
 }
 
+// "Desfaz" o recorte tipo capa: encolhe a caixa (centralizada no mesmo lugar)
+// até caber a imagem inteira dentro dela, sem cortar nada. Depois disso a
+// caixa já fica na proporção real da imagem, então o cover-fit do próximo
+// redimensionamento não corta mais nada sozinho.
+function removeImageZoom(layer, node) {
+  const imgEl = node.image();
+  if (!imgEl) return;
+  const iw = imgEl.naturalWidth || imgEl.width, ih = imgEl.naturalHeight || imgEl.height;
+  if (!iw || !ih) return;
+  const scale = Math.min(layer.width / iw, layer.height / ih);
+  const newW = iw * scale, newH = ih * scale;
+  layer.x = layer.x + (layer.width - newW) / 2;
+  layer.y = layer.y + (layer.height - newH) / 2;
+  layer.width = newW;
+  layer.height = newH;
+  node.position({ x: layer.x, y: layer.y });
+  node.size({ width: newW, height: newH });
+  const crop = fitCoverCrop(imgEl, newW, newH);
+  if (crop) node.crop(crop);
+  mainLayer.draw();
+  selectNode(layer.id); // refaz as alças do transformer no tamanho novo
+  markChanged(true);
+}
+
 async function createImageNode(layer) {
   if (!layer.src) {
     const rect = new Konva.Rect({
@@ -686,7 +710,7 @@ async function createImageNode(layer) {
   const node = new Konva.Image({
     x: layer.x, y: layer.y, width: layer.width, height: layer.height, rotation: layer.rotation || 0,
     image: imgEl, crop: fitCoverCrop(imgEl, layer.width, layer.height) || undefined,
-    cornerRadius: layer.cornerRadius || 0, draggable: true,
+    cornerRadius: layer.cornerRadius || 0, opacity: layer.opacity != null ? layer.opacity : 1, draggable: true,
   });
   node.setAttrs({ layerId: layer.id, layerType: 'image' });
   node.on('dragend', () => { layer.x = node.x(); layer.y = node.y(); markChanged(true); });
@@ -755,9 +779,44 @@ function showProps(layer, node) {
     panel.innerHTML += '<div class="empty-hint">Toque num elemento na arte pra editar.</div>';
     return;
   }
+
+  const layerRow = document.createElement('div');
+  layerRow.style.cssText = 'display:flex; gap:6px; margin-bottom:10px;';
+  const upBtn = document.createElement('button');
+  upBtn.className = 'btn secondary small'; upBtn.style.flex = '1';
+  upBtn.textContent = '⬆️ Subir';
+  upBtn.addEventListener('click', () => moveLayer(layer.id, 'up'));
+  const downBtn = document.createElement('button');
+  downBtn.className = 'btn secondary small'; downBtn.style.flex = '1';
+  downBtn.textContent = '⬇️ Descer';
+  downBtn.addEventListener('click', () => moveLayer(layer.id, 'down'));
+  layerRow.appendChild(upBtn); layerRow.appendChild(downBtn);
+  panel.appendChild(layerRow);
+
   if (layer.type === 'text') return showTextProps(panel, layer, node);
   if (layer.type === 'shape') return showShapeProps(panel, layer, node);
   if (layer.type === 'image') return showImageProps(panel, layer, node);
+}
+
+// Reordena tanto o array design.layers (o que vai pro template salvo)
+// quanto o nó visual no Konva — os dois precisam ficar em sincronia.
+function moveLayer(id, direction) {
+  const idx = design.layers.findIndex(l => l.id === id);
+  if (idx === -1) return;
+  const node = nodesById[id];
+  if (direction === 'up') {
+    if (idx >= design.layers.length - 1) return;
+    [design.layers[idx], design.layers[idx + 1]] = [design.layers[idx + 1], design.layers[idx]];
+    node.moveUp();
+  } else {
+    if (idx <= 0) return;
+    [design.layers[idx], design.layers[idx - 1]] = [design.layers[idx - 1], design.layers[idx]];
+    node.moveDown();
+  }
+  if (window.__bgNode) window.__bgNode.moveToBottom();
+  transformer.moveToTop();
+  mainLayer.draw();
+  markChanged(true);
 }
 
 function row(label) {
@@ -852,6 +911,27 @@ function showImageProps(panel, layer, node) {
   radiusSlider.type = 'range'; radiusSlider.min = '0'; radiusSlider.max = '120'; radiusSlider.value = String(layer.cornerRadius || 0);
   radiusSlider.addEventListener('input', () => { layer.cornerRadius = Number(radiusSlider.value); node.cornerRadius(layer.cornerRadius); mainLayer.draw(); markChanged(false); });
   r1.appendChild(radiusSlider); panel.appendChild(r1);
+
+  const rOpacity = row('Opacidade');
+  const opacitySlider = document.createElement('input');
+  opacitySlider.type = 'range'; opacitySlider.min = '0'; opacitySlider.max = '100';
+  opacitySlider.value = String(Math.round((layer.opacity != null ? layer.opacity : 1) * 100));
+  opacitySlider.addEventListener('input', () => {
+    layer.opacity = Number(opacitySlider.value) / 100;
+    node.opacity(layer.opacity);
+    mainLayer.draw();
+    markChanged(false);
+  });
+  rOpacity.appendChild(opacitySlider); panel.appendChild(rOpacity);
+
+  if (node.getAttr('layerType') === 'image') {
+    const fitBtn = document.createElement('button');
+    fitBtn.className = 'btn secondary small';
+    fitBtn.style.cssText = 'width:100%; margin-bottom:10px;';
+    fitBtn.textContent = '📐 Remover zoom (ajustar sem cortar)';
+    fitBtn.addEventListener('click', () => { removeImageZoom(layer, node); });
+    panel.appendChild(fitBtn);
+  }
 
   if (layer.role === 'fixed_asset') {
     const label = document.createElement('div');
